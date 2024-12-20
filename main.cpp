@@ -99,15 +99,6 @@ const int	MAX_WARP_LEVEL = 9;
 const int	MIN_THROTTLE_LEVEL = 0;
 const int	MAX_THROTTLE_LEVEL = 10;
 
-// geometry constants
-
-const float EARTH_RADIUS = 1.0f;
-const float SUN_RADIUS = 100.0f;
-const float SUN_DISTANCE = 5000.0f;
-const float STAR_FIELD_RADIUS = 15000.0f;
-
-const float Z_FAR_CLIP = 25000.0f;
-
 // distance limit for simulation end
 
 const int	SOI_LIMIT = 10000000; // In km
@@ -136,8 +127,8 @@ enum OrbitType {
 };
 
 std::string GameModeLabels[] = {
-	"Sandbox Mode",
-	"Challenge Mode"
+	"Sandbox",
+	"Challenge"
 };
 
 const GLfloat BACKCOLOR[ ] = { 0., 0., 0., 1. };
@@ -186,6 +177,13 @@ const int ThrottleScales[] = {
 	500,
 	1000
 };
+
+// win condition thresholds for challenge mode
+
+const float SMA_WIN_THRESHOLD = 1000.0f;
+const float INC_WIN_THRESHOLD = 1.0f;
+const float LAN_WIN_THRESHOLD = 5.0f;
+const float ARGPE_WIN_THRESHOLD = 5.0f;
 
 
 // for lighting
@@ -263,7 +261,7 @@ void		DoOrbitDetailMenu(int);
 void		DoDebugMenu(int);
 void		DoMainMenu(int);
 void		DoRasterString(float, float, float, const std::string&);
-void		DoStrokeString(float, float, float, float, char*);
+void		DoStrokeString(float, float, float, float, const std::string&);
 
 void		Alert(const std::string&);
 
@@ -612,10 +610,8 @@ void RenderStarfield() {
 void DrawOrbit(Orbit* orbit, int type) {
 	std::vector<float> OrbitPoints = orbit->getVertices();
 	OrbitalElements elements = orbit->getParameters();
-
-	glDisable(GL_LIGHTING);
-
 	float gradientStart = orbit->getGradientStart();
+
 	size_t numVertices = OrbitPoints.size() / 3;
 	float gradientStep = 1.0f / (numVertices);
 
@@ -627,6 +623,8 @@ void DrawOrbit(Orbit* orbit, int type) {
 			gradientStart += 1.0f;
 		}
 	}
+
+	glDisable(GL_LIGHTING);
 
 	if (elements.ecc < 1.0f)
 		glBegin(GL_LINE_LOOP);
@@ -885,13 +883,54 @@ void RenderAlert() {
 }
 
 
+// PLACEHOLDER NAMES UNTIL I FIGURE OUT A BETTER WAY
+
+std::vector<std::string> names = {
+	"Cool ship",
+	"Awesome ship",
+	"Amazing ship",
+	"Fantastic ship",
+	"Super ship",
+	"Great ship",
+	"Breathtaking ship",
+	"Stunning ship",
+	"Astonishing ship",
+	"Unbelievable ship",
+	"Mind-blowing ship",
+	"Jaw-dropping ship",
+	"Spectacular ship",
+	"Remarkable ship",
+	"Extraordinary ship",
+	"Incredible ship",
+	"Phenomenal ship",
+	"Outstanding ship"
+};
+
+std::vector<int> usages(18, 0);
+
+void spawnNew(bool announce) {
+	int randAltOffset = Ranf(-500, 2000);
+	int randVelOffset = Ranf(-100, 500);
+
+	int nameIndex = rand() % names.size();
+	int usage = usages[nameIndex] + 1;
+	usages[nameIndex]++;
+
+	std::string name = names[nameIndex] + " #" + std::to_string(usage);
+
+	vessels.push_back(new Spacecraft(name, INIT_ALT + randAltOffset, INIT_VEL + randVelOffset));
+
+	if (announce)
+		Alert("Spawned new vessel: " + name);
+}
+
+
+
 void InitSandbox(bool cont) {
 	currGameMode = SANDBOX;
 	currModeLabel = GameModeLabels[SANDBOX];
 
 	if (cont) {
-		delete challengeOrbit;
-		challengeOrbit = NULL;
 		InitMenus();
 	} else {
 		spawnNew(false);
@@ -926,15 +965,13 @@ void InitChallenge() {
 		DEG_TO_RAD(lan),
 		DEG_TO_RAD(argpe)
 	);
-
-	float dv = ship->getOrbit()->calculateTransferDv(*challengeOrbit);
-	fprintf(stderr, "Transfer DV: %f\n", U_TO_M(dv));
 	
 	Alert("Challenge mode: match the designated orbit to win!");
 
 }
 
 void CheckWin() {
+
 
 	if (trueElapsedTime - lastThrust < 1000) return;
 
@@ -947,13 +984,16 @@ void CheckWin() {
 	float argpeDiff = RAD_TO_DEG(fabs(vesselParams.argpe - targetParams.argpe));
 
 	if (
-		smaDiff < 1000.0f &&
-		incDiff < 1.0f &&
-		lanDiff < 5.0f &&
-		argpeDiff < 5.0f
+		smaDiff < SMA_WIN_THRESHOLD &&
+		incDiff < INC_WIN_THRESHOLD &&
+		lanDiff < LAN_WIN_THRESHOLD &&
+		argpeDiff < ARGPE_WIN_THRESHOLD
 		) {
 		Alert("Orbit matched! You have completed the challenge");
+		delete challengeOrbit;
+		challengeOrbit = NULL;
 		InitSandbox(true);
+		
 	}
 
 }
@@ -1079,51 +1119,51 @@ InitLists()
 
 	SphereDL = glGenLists(1);
 	glNewList(SphereDL, GL_COMPILE);
-	OsuSphere(1., 200, 200);
+		OsuSphere(1., 200, 200);
 	glEndList();
 
 	EarthDL = glGenLists(1);
 	glNewList(EarthDL, GL_COMPILE);
-	glPushMatrix();
-	glScalef(EARTH_RADIUS, EARTH_RADIUS, EARTH_RADIUS);
-	glBindTexture(GL_TEXTURE_2D, EarthTex);
-	glCallList(SphereDL);
-	glPopMatrix();
+		glPushMatrix();
+		glScalef(EARTH_RADIUS, EARTH_RADIUS, EARTH_RADIUS);
+		glBindTexture(GL_TEXTURE_2D, EarthTex);
+		glCallList(SphereDL);
+		glPopMatrix();
 	glEndList();
 
 	SunDL = glGenLists(1);
 	glNewList(SunDL, GL_COMPILE);
-	glPushMatrix();
-	glScalef(SUN_RADIUS, SUN_RADIUS, SUN_RADIUS);
-	glColor3f(1.0f, 1.0f, 0.0f);
-	glCallList(SphereDL);
-	glPopMatrix();
+		glPushMatrix();
+		glScalef(SUN_RADIUS, SUN_RADIUS, SUN_RADIUS);
+		glColor3f(1.0f, 1.0f, 0.0f);
+		glCallList(SphereDL);
+		glPopMatrix();
 	glEndList();
 
 	StarfieldDL = glGenLists(1);
 	glNewList(StarfieldDL, GL_COMPILE);
-	glPushMatrix();
-	glScalef(STAR_FIELD_RADIUS, STAR_FIELD_RADIUS, STAR_FIELD_RADIUS);
-	glBindTexture(GL_TEXTURE_2D, StarfieldTex);
-	glCallList(SphereDL);
-	glPopMatrix();
+		glPushMatrix();
+		glScalef(STAR_FIELD_RADIUS, STAR_FIELD_RADIUS, STAR_FIELD_RADIUS);
+		glBindTexture(GL_TEXTURE_2D, StarfieldTex);
+		glCallList(SphereDL);
+		glPopMatrix();
 	glEndList();
 
 	// placeholder sphere for vessel
 	VesselDL = glGenLists(1);
 	glNewList(VesselDL, GL_COMPILE);
-	glPushMatrix();
-	glScalef(0.01f, 0.01f, 0.01f);
-	glColor3f(0.7f, 0.7f, 0.7f);
-	glCallList(SphereDL);
-	glPopMatrix();
+		glPushMatrix();
+		glScalef(0.01f, 0.01f, 0.01f);
+		glColor3f(0.7f, 0.7f, 0.7f);
+		glCallList(SphereDL);
+		glPopMatrix();
 	glEndList();
 
 	AxesList = glGenLists(1);
 	glNewList(AxesList, GL_COMPILE);
-	glLineWidth(AXES_WIDTH);
-	Axes(1.5);
-	glLineWidth(1.);
+		glLineWidth(AXES_WIDTH);
+		Axes(1.5);
+		glLineWidth(1.);
 	glEndList();
 }
 
@@ -1197,35 +1237,6 @@ DoMainMenu( int id )
 
 	glutSetWindow( MainWindow );
 	glutPostRedisplay( );
-}
-
-
-// display a string using a raster font:
-
-void DoRasterString(float x, float y, float z, const std::string& s) {
-	glRasterPos3f((GLfloat)x, (GLfloat)y, (GLfloat)z);
-
-	for (char c : s) {
-		glutBitmapCharacter(GLUT_BITMAP_8_BY_13, c);
-	}
-}
-
-
-// display a string using a stroke font:
-
-void
-DoStrokeString( float x, float y, float z, float ht, char *s )
-{
-	glPushMatrix( );
-		glTranslatef( (GLfloat)x, (GLfloat)y, (GLfloat)z );
-		float sf = ht / ( 119.05f + 33.33f );
-		glScalef( (GLfloat)sf, (GLfloat)sf, (GLfloat)sf );
-		char c;			// one character to print
-		for( ; ( c = *s ) != '\0'; s++ )
-		{
-			glutStrokeCharacter( GLUT_STROKE_ROMAN, c );
-		}
-	glPopMatrix( );
 }
 
 // initialize the glui window:
@@ -1537,50 +1548,6 @@ MouseMotion( int x, int y )
 	glutPostRedisplay( );
 }
 
-
-// PLACEHOLDER NAMES UNTIL I FIGURE OUT A BETTER WAY
-
-std::vector<std::string> names = {
-	"Cool ship",
-	"Awesome ship",
-	"Amazing ship",
-	"Fantastic ship",
-	"Super ship",
-	"Great ship",
-	"Breathtaking ship",
-	"Stunning ship",
-	"Astonishing ship",
-	"Unbelievable ship",
-	"Mind-blowing ship",
-	"Jaw-dropping ship",
-	"Spectacular ship",
-	"Remarkable ship",
-	"Extraordinary ship",
-	"Incredible ship",
-	"Phenomenal ship",
-	"Outstanding ship"
-};
-
-std::vector<int> usages(18, 0);
-
-void spawnNew(bool announce) {
-	int randAltOffset = Ranf(-500, 2000);
-	int randVelOffset = Ranf(-100, 500);
-
-	int nameIndex = rand() % 18;
-	int usage = usages[nameIndex] + 1;
-	usages[nameIndex]++;
-
-	std::string name = names[nameIndex] + " #" + std::to_string(usage);
-
-	vessels.push_back(new Spacecraft(name, INIT_ALT + randAltOffset, INIT_VEL + randVelOffset));
-
-	if (announce)
-		Alert("Spawned new vessel: " + name);
-}
-
-
-
 // reset the simulation
 
 void
@@ -1631,6 +1598,31 @@ Reset(int gamemode)
 
 }
 
+
+// display a string using a raster font:
+
+void DoRasterString(float x, float y, float z, const std::string& s) {
+	glRasterPos3f((GLfloat)x, (GLfloat)y, (GLfloat)z);
+
+	for (char c : s) {
+		glutBitmapCharacter(GLUT_BITMAP_8_BY_13, c);
+	}
+}
+
+
+// display a string using a stroke font:
+
+void DoStrokeString(float x, float y, float z, float ht, const std::string& s) {
+	glPushMatrix();
+	glTranslatef((GLfloat)x, (GLfloat)y, (GLfloat)z);
+	float sf = ht / (119.05f + 33.33f);
+	glScalef((GLfloat)sf, (GLfloat)sf, (GLfloat)sf);
+	for (char c : s)
+	{
+		glutStrokeCharacter(GLUT_STROKE_ROMAN, c);
+	}
+	glPopMatrix();
+}
 
 // called when user resizes the window:
 

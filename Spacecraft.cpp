@@ -9,7 +9,7 @@ Spacecraft::Spacecraft() :
 Spacecraft::Spacecraft(std::string name, int initAlt, int initVel)
 	: Spacecraft(
 		name,
-		Vector3<float>{ KM_TO_U(initAlt) + 1.0f, 0.0f, 0.0f },
+		Vector3<float>{ KM_TO_U(initAlt) + EARTH_RADIUS, 0.0f, 0.0f },
 		Vector3<float>{ 0.0f, 0.0f, -M_TO_U(initVel) },
 		Vector3<float>{ 0.0f, 0.0f, 1.0f },
 		Vector3<float>{ 1.0f, 0.0f, 0.0f },

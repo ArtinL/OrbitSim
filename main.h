@@ -19,7 +19,16 @@
 #define EARTH_MASS 5.972e24f
 #define MU (G * EARTH_MASS)
 
-#define CONVERSION_RATE 6371000.0f
+// defines standard scale for the simulation
+// all values are calculated with this as baseline
+#define EARTH_RADIUS 1.0f
+
+#define SUN_RADIUS (EARTH_RADIUS * 109.0f)
+#define SUN_DISTANCE (EARTH_RADIUS * 5000.0f)
+#define STAR_FIELD_RADIUS (EARTH_RADIUS * 15000.0f)
+#define Z_FAR_CLIP (EARTH_RADIUS * 20000.0f)
+
+#define CONVERSION_RATE (6371000.0f / EARTH_RADIUS)
 
 #define U_TO_M(x) ((x) * (CONVERSION_RATE))
 #define M_TO_U(x) ((x) / (CONVERSION_RATE))
@@ -40,13 +49,8 @@
 //
 //#define ROTATION_RATE 0.05
 //
-//#define EARTH_RADIUS 1.0f
+
+
 //#define SOI_LIMIT ( 10000000 )
-//
-//#define SUN_RADIUS 100.0f
-//#define SUN_DISTANCE 5000.0f
-//#define STAR_FIELD_RADIUS 5000.0f
-
-
 
 #endif
