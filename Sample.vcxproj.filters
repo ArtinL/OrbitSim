@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Orbit.cpp" />
+    <ClCompile Include="Spacecraft.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="main.h" />
+    <ClInclude Include="Orbit.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="Spacecraft.h" />
+    <ClInclude Include="Vector3.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Sample.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="earth.bmp" />
+    <Image Include="earth_cloud.bmp" />
+    <Image Include="navball.bmp" />
+    <Image Include="stars.bmp" />
+  </ItemGroup>
+</Project>
