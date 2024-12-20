@@ -167,9 +167,9 @@ const int WarpAltLimits[]{
 	0,
 	0,
 	100,
-	10000,
-	100000,
-	1000000,
+	8000,
+	50000,
+	500000,
 };
 
 // scaling factors for engine throttle
@@ -204,6 +204,8 @@ int			Xmouse, Ymouse;
 float		cameraRadius;
 float		cameraTheta;
 float		cameraPhi;
+
+Vector3<float>	cameraPos;
 
 unsigned long	scaledElapsedTime;
 unsigned long	trueElapsedTime;
@@ -292,9 +294,9 @@ void		impulseControl(ImpulseDirection);
 void		cullDestroyedVessels();
 void		limitWarpLevel();
 void		updateVessels();
-void		spawnNew(bool);
+void		spawnNew(bool announce = true);
 
-void 		InitSandbox(bool);
+void 		InitSandbox(bool cont = false);
 void		InitChallenge();
 void		CheckWin();
 
@@ -443,6 +445,8 @@ Display( )
 
 	float distance = sqrt(cameraX * cameraX + cameraY * cameraY + cameraZ * cameraZ);
 
+	cameraPos = { cameraX, cameraY, cameraZ };
+
 
 
 	// Set the eye position, look-at position, and up-vector
@@ -547,7 +551,7 @@ void updateVessels() {
 void limitWarpLevel() {
 	float kmTrueAlt = U_TO_KM(vessels[activeVessel]->getPosition().magnitude() - EARTH_RADIUS);
 	if (WarpAltLimits[WarpLevel] > kmTrueAlt)
-		Alert("Warp limited to " + ProcessIntStr(WarpScales[--WarpLevel]));
+		Alert("Warp limited to x" + ProcessIntStr(WarpScales[--WarpLevel]));
 	
 }
 
@@ -674,7 +678,6 @@ void PlaceIndicatorWidget(float x, float y, float z, int type, bool ap) {
 	glPushMatrix();
 
 	glTranslatef(x, y, z);
-
 	switch (type) {
 	case ACTIVE:
 		glColor3f(0.0f, 0.5f, 0.5f);
@@ -683,8 +686,9 @@ void PlaceIndicatorWidget(float x, float y, float z, int type, bool ap) {
 		glColor3f(0.5f, 0.0f, 0.5f);
 		break;
 	}
-
+	
 	GLfloat modelview[16];
+	
 	glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
@@ -751,6 +755,10 @@ void DrawVessel(Spacecraft* vessel, bool active) {
 	glPushMatrix();
 	glDisable(GL_LIGHTING);
 	glTranslatef(vessel->getPosition().x, vessel->getPosition().y, vessel->getPosition().z);
+
+	float camDistance = (cameraPos - vessel->getPosition()).magnitude();
+
+	glScalef(camDistance, camDistance, camDistance);
 	glCallList(VesselDL);
 	glEnable(GL_LIGHTING);
 	glPopMatrix();
@@ -877,7 +885,7 @@ void RenderAlert() {
 }
 
 
-void InitSandbox(bool cont = false) {
+void InitSandbox(bool cont) {
 	currGameMode = SANDBOX;
 	currModeLabel = GameModeLabels[SANDBOX];
 
@@ -1273,9 +1281,8 @@ void warpControl(int up) {
 	float kmTrueAlt = U_TO_KM(vessels[activeVessel]->getPosition().magnitude() - EARTH_RADIUS);
 
 	if (up && WarpAltLimits[WarpLevel + 1] > kmTrueAlt) {
-		char msg[128];
-		Alert("Cannot warp above x" + ProcessIntStr(WarpScales[WarpLevel]) + 
-			" while below " + ProcessIntStr(WarpAltLimits[WarpLevel + 1]) + " km");
+		Alert("Cannot warp more than x" + ProcessIntStr(WarpScales[WarpLevel]) + 
+			" while under " + ProcessIntStr(WarpAltLimits[WarpLevel + 1]) + " km");
 		return;
 	}
 	
@@ -1556,7 +1563,7 @@ std::vector<std::string> names = {
 
 std::vector<int> usages(18, 0);
 
-void spawnNew(bool announce = true) {
+void spawnNew(bool announce) {
 	int randAltOffset = Ranf(-500, 2000);
 	int randVelOffset = Ranf(-100, 500);
 
