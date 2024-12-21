@@ -52,3 +52,5 @@ The camera can change focus between the active vessel and Earth
 This project started out as my submission for the final project in my Intro to Computer Graphics class in Oregon State University (CS 550), taught by Prof. Mike Bailey (mjb@cs.oregonstate.edu). 
 
 The source code has been adapted from and built upon CS 4/550's "Sample2022" OpenGL program
+
+And if it wasn't immediately obvious, the look and feel of the game is *heavily* inspired by the video game Kerbal Space Program
