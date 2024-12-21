@@ -82,12 +82,7 @@ void Orbit::calculateOrbit() {
 
 void Orbit::calculateOrbit(Vector3<float> pos, Vector3<float> vel) {
     calculateOrbitalElements(pos, vel);
-    vertices.clear();
-
-    if (parameters.ecc < 1.0f)
-        calculateEllipticalOrbit();
-    else
-        calculateHyperbolicOrbit();
+    calculateOrbit();
 
 }
 

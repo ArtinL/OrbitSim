@@ -73,43 +73,43 @@ void Spacecraft::rungeKuttaStep(const Vector3<float>& position, const Vector3<fl
 
 
 void Spacecraft::updateState(float ScaledDeltaTime) {
-	// Ensure ScaledDeltaTime is positive to avoid negative time steps
-	float deltaTime = ScaledDeltaTime / 1000.0f; // Convert milliseconds to seconds
+	
+	float dT = MS_TO_S(ScaledDeltaTime);
 
 	float PosMag = position.magnitude();
 
-	// Convert position and velocity from OpenGL units to SI units
-	Vector3<float> positionSI = U_TO_M(position);
-	Vector3<float> velocitySI = U_TO_M(velocity);
+	
+	Vector3<float> r = U_TO_M(position);
+	Vector3<float> v = U_TO_M(velocity);
 
-	// Runge-Kutta 4th order integration
+	
 	Vector3<float> k1_r, k1_v, k2_r, k2_v, k3_r, k3_v, k4_r, k4_v;
 
-	// k1 for position and velocity
-	rungeKuttaStep(positionSI, velocitySI, deltaTime, k1_r, k1_v);
+	
+	rungeKuttaStep(r, v, dT, k1_r, k1_v);
 
-	// k2 for position and velocity
-	Vector3<float> midVelocity = velocitySI + k1_v * 0.5f;
-	Vector3<float> midPosition = positionSI + k1_r * 0.5f;
-	rungeKuttaStep(midPosition, midVelocity, deltaTime, k2_r, k2_v);
+	
+	Vector3<float> vMid = v + k1_v * 0.5f;
+	Vector3<float> rMid = r + k1_r * 0.5f;
+	rungeKuttaStep(rMid, vMid, dT, k2_r, k2_v);
 
-	// k3 for position and velocity
-	midVelocity = velocitySI + k2_v * 0.5f;
-	midPosition = positionSI + k2_r * 0.5f;
-	rungeKuttaStep(midPosition, midVelocity, deltaTime, k3_r, k3_v);
+	
+	vMid = v + k2_v * 0.5f;
+	rMid = r + k2_r * 0.5f;
+	rungeKuttaStep(rMid, vMid, dT, k3_r, k3_v);
 
-	// k4 for position and velocity
-	Vector3<float> finalVelocity = velocitySI + k3_v;
-	Vector3<float> finalPosition = positionSI + k3_r;
-	rungeKuttaStep(finalPosition, finalVelocity, deltaTime, k4_r, k4_v);
+	
+	Vector3<float> vFinal = v + k3_v;
+	Vector3<float> rFinal = r + k3_r;
+	rungeKuttaStep(rFinal, vFinal, dT, k4_r, k4_v);
 
-	// Final velocity and position after all 4 stages
-	Vector3<float> newVelocitySI = velocitySI + (k1_v + (k2_v + k3_v) * 2.0f + k4_v) / 6.0f;
-	Vector3<float> newPositionSI = positionSI + (k1_r + (k2_r + k3_r) * 2.0f + k4_r) / 6.0f;
+	
+	Vector3<float> vNew = v + (k1_v + (k2_v + k3_v) * 2.0f + k4_v) / 6.0f;
+	Vector3<float> rNew = r + (k1_r + (k2_r + k3_r) * 2.0f + k4_r) / 6.0f;
 
-	// Convert back to OpenGL units
-	position = M_TO_U(newPositionSI);
-	velocity = M_TO_U(newVelocitySI);
+	
+	position = M_TO_U(rNew);
+	velocity = M_TO_U(vNew);
 
 }
 
@@ -160,8 +160,8 @@ void Spacecraft::applyImpulse(ImpulseDirection direction, float magnitude) {
 }
 
 float Spacecraft::getTrueAnomaly() const {
-	Vector3<float > r = U_TO_M(position);
-	Vector3<float > v = U_TO_M(velocity);
+	Vector3<float> r = U_TO_M(position);
+	Vector3<float> v = U_TO_M(velocity);
 
 	float rMag = r.magnitude();
 	float vMag = v.magnitude();
