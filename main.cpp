@@ -192,12 +192,15 @@ enum Color
 	CYAN,
 	BLUE,
 	MAGENTA,
+	ORBIT_CYAN,
+	ORBIT_GREY,
+	ORBIT_MAGENTA,
 	DARK_CYAN,
 	DARK_MAGENTA,
 };
 
 
-const GLfloat Colors[][3] =
+GLfloat Colors[][3] =
 {
 	{ 1., 0., 0. },		// red
 	{ 1., 1., 0. },		// yellow
@@ -205,6 +208,9 @@ const GLfloat Colors[][3] =
 	{ 0., 1., 1. },		// cyan
 	{ 0., 0., 1. },		// blue
 	{ 1., 0., 1. },		// magenta
+	{ 0., 0.7, 0.7 },	// orbit cyan
+	{ 0.7, 0.7, 0.7 },	// orbit grey
+	{ 0.7, 0., 0.7 },	// orbit magenta
 	{ 0., 0.5, 0.5 },	// dark cyan
 	{ 0.5, 0., 0.5 },	// dark magenta
 };
@@ -294,16 +300,15 @@ void		PlaceIndicatorWidget(Vector3<float>, Color, const std::string&);
 void		RenderTimeWarpWidget();
 std::string	GenerateWarpInfo();
 std::string	GenerateTimeInfo();
-void		RenderOrbitalInfoWidget(Orbit orbit);
-void		RenderExtendedOrbitalWidget(Orbit orbit);
+void		RenderOrbitalInfoWidget(Orbit, int);
 void		RenderVelocityWidget();
 void		RenderAltitudeWidget();
 void		RenderGameModeTitle();
 void		RenderThrottleWidget();
 void		RenderAlert();
 
-void		DrawOrbit(Orbit*, int type);
-void		DrawVessel(Spacecraft* vessel, bool active);
+void		DrawOrbit(Orbit*, int );
+void		DrawVessel(Spacecraft* , bool );
 
 void		warpControl(int);
 void		impulseControl(ImpulseDirection);
@@ -509,16 +514,10 @@ Display( )
 	RenderAltitudeWidget();
 	RenderGameModeTitle();
 
-	if (DoOrbitDetail) { 
-		RenderExtendedOrbitalWidget(*(vessels[activeVessel]->getOrbit()));
-		if (currGameMode == CHALLENGE) RenderExtendedOrbitalWidget(*targetOrbit);
-	}
-	else {
-		RenderOrbitalInfoWidget(*(vessels[activeVessel]->getOrbit()));
-		if (currGameMode == CHALLENGE) RenderOrbitalInfoWidget(*targetOrbit);
-
-	}
-
+	
+	RenderOrbitalInfoWidget(*(vessels[activeVessel]->getOrbit()), ACTIVE);
+	if (currGameMode == CHALLENGE) 
+		RenderOrbitalInfoWidget(*targetOrbit, TARGET);
 
 
 	RenderThrottleWidget();
@@ -563,6 +562,27 @@ void updateVessels() {
 		}
 
 	}
+
+	if (currGameMode == CHALLENGE && targetOrbit != NULL) {
+
+		static int lastTime = 0;
+		if (lastTime == 0) lastTime = trueElapsedTime;
+
+		if (trueElapsedTime - lastTime < 20) return;
+		
+		lastTime = trueElapsedTime;
+		int referenceIndex = static_cast<int>(targetOrbit->getReferenceIndex());
+		int numVertices = targetOrbit->getVertices().size();
+		int stepSize = static_cast<int>((1.0f / MIN_ORBIT_VERTICES) * numVertices);
+
+		referenceIndex -= stepSize;
+		if (referenceIndex < 0) {
+			referenceIndex += numVertices;
+		}
+		targetOrbit->setReferenceIndex(static_cast<float>(referenceIndex));
+	}
+
+
 }
 
 void limitWarpLevel() {
@@ -628,51 +648,43 @@ void RenderStarfield() {
 
 void DrawOrbit(Orbit* orbit, int type) {
 	std::vector<Vector3<float>> OrbitPoints = orbit->getVertices();
-	OrbitalElements elements = orbit->getParameters();
-	float gradientStart = orbit->getGradientStart();
-
+	int referenceIndex = static_cast<int>(orbit->getReferenceIndex());
 	size_t numVertices = OrbitPoints.size();
-	float gradientStep = 1.0f / numVertices;
-
-	int vesselStartIndex = vessels[activeVessel]->getVertexIndex();
-
-	if (type == TARGET) {
-		gradientStart -= gradientStep * 0.1f;
-		if (gradientStart < 0.0f) {
-			gradientStart += 1.0f;
-		}
-	}
 
 	glDisable(GL_LIGHTING);
 
-	if (elements.ecc < 1.0f)
+	if (orbit->getParameters().ecc < 1.0f)
 		glBegin(GL_LINE_LOOP);
 	else
 		glBegin(GL_LINE_STRIP);
 
+	GLfloat* color;
+
+	switch (type) {
+	case ACTIVE:
+		color = Colors[ORBIT_CYAN];
+		break;
+	case TARGET:
+		color = Colors[ORBIT_MAGENTA];
+		break;
+	case INACTIVE:
+		color = Colors[ORBIT_GREY];
+		break;
+
+	}
+
+	
 	for (size_t i = 0; i < numVertices; ++i) {
 		float brightness = 1.0f;
 
-		float t = static_cast<float>(i) / numVertices;
-
-		if (t >= gradientStart) {
-			brightness = 0.5f + 0.5f * (1.0f - (t - gradientStart));
+		if (i >= referenceIndex) {
+			brightness = 0.3f + 0.7f * (1.0f - static_cast<float>(i - referenceIndex) / numVertices);
 		}
 		else {
-			brightness = 0.5f + 0.5f * (1.0f - (t + 1.0f - gradientStart));
+			brightness = 0.3f + 0.7f * (1.0f - static_cast<float>(i + numVertices - referenceIndex) / numVertices);
 		}
 
-		switch (type) {
-		case ACTIVE:
-			glColor3f(0.0f, 0.7f, 0.7f);
-			break;
-		case INACTIVE:
-			glColor3f(0.4f, 0.4f, 0.4f);
-			break;
-		case TARGET:
-			glColor3f(0.7f * brightness, 0.0f, 0.7f * brightness);
-			break;
-		}
+		glColor3fv(MulArray3(brightness, color));
 
 		const Vector3<float>& point = OrbitPoints[i];
 		glVertex3f(point.x, point.y, point.z);
@@ -682,8 +694,8 @@ void DrawOrbit(Orbit* orbit, int type) {
 	RenderIndicators(orbit, type);
 
 	glEnable(GL_LIGHTING);
-	orbit->setGradientStart(gradientStart);
 }
+
 
 
 void PlaceIndicatorWidget(Vector3<float> pos, Color color, const std::string& label) {
@@ -837,40 +849,34 @@ void RenderAltitudeWidget() {
 	DoRasterString((160 - length) / 2, 80.0f, 0.0f, altitudeInfo);
 }
 
-void RenderOrbitalInfoWidget(Orbit orbit) {
+void RenderOrbitalInfoWidget(Orbit orbit, int type) {
 	OrbitalElements OrbitInfo = orbit.getParameters();
+
+	std::string label = type == ACTIVE ? vessels[activeVessel]->getName() : "Target";
+	float startOffset = type == ACTIVE ? 85.0f : 40.0f;
 
 	float ap = U_TO_KM(OrbitInfo.ap - EARTH_RADIUS);
 	float pe = U_TO_KM(OrbitInfo.pe - EARTH_RADIUS);
 	float inc = RAD_TO_DEG(OrbitInfo.inc);
 
-	std::string label = orbit.isVesselOrbit() ? vessels[activeVessel]->getName() : "Target";
-	float startOffset = orbit.isVesselOrbit() ? 85.0f : 40.0f;
-
 	DoRasterString(135.0f, startOffset, 0.0f, label);
-
 	DoRasterString(135.0, startOffset - 5, 0.0f, "Ap: " + ProcessFloatStr(ap) + " km");
 	DoRasterString(135.0, startOffset - 10, 0.0f, "Pe: " + ProcessFloatStr(pe) + " km");
 	DoRasterString(135.0, startOffset - 15, 0.0f, "Inc: " + ProcessFloatStr(inc) + " deg");
-}
 
-void RenderExtendedOrbitalWidget(Orbit orbit) {
-	OrbitalElements OrbitInfo = orbit.getParameters();
+	if (!DoOrbitDetail) return;
 
 	float sma = U_TO_KM(OrbitInfo.sma);
 	float ecc = OrbitInfo.ecc;
 	float lan = RAD_TO_DEG(OrbitInfo.lan);
 	float argpe = RAD_TO_DEG(OrbitInfo.argpe);
-
-	RenderOrbitalInfoWidget(orbit);
-
-	float startOffset = orbit.isVesselOrbit() ? 65.0f : 20.0f;
-
-	DoRasterString(135.0, startOffset, 0.0f, "SMA: " + ProcessFloatStr(sma) + " km");
-	DoRasterString(135.0, startOffset - 5, 0.0f, "ecc: " + ProcessFloatStr(ecc));
-	DoRasterString(135.0, startOffset - 10, 0.0f, "lan: " + ProcessFloatStr(lan) + " deg");
-	DoRasterString(135.0, startOffset - 15, 0.0f, "argpe: " + ProcessFloatStr(argpe) + " deg");
+	DoRasterString(135.0, startOffset - 20, 0.0f, "SMA: " + ProcessFloatStr(sma) + " km");
+	DoRasterString(135.0, startOffset - 25, 0.0f, "ecc: " + ProcessFloatStr(ecc));
+	DoRasterString(135.0, startOffset - 30, 0.0f, "lan: " + ProcessFloatStr(lan) + " deg");
+	DoRasterString(135.0, startOffset - 35, 0.0f, "argpe: " + ProcessFloatStr(argpe) + " deg");
 }
+
+
 
 
 void RenderThrottleWidget() {
@@ -983,7 +989,7 @@ void InitChallenge() {
 	float ap = max(init1, init2);
 	float pe = min(init1, init2);
 
-	float inc = Ranf(0.0f, 75.0f);
+	float inc = Ranf(0.0f, 60.0f);
 	float lan = Ranf(0.0f, 360.0f);
 	float argpe = Ranf(0.0f, 360.0f);
 

@@ -36,9 +36,7 @@ private:
 	int apIndex;
 	int peIndex;
 
-	float gradientStart;
-
-	bool vessel;
+	int referenceIndex;
 	
 	void			calculateOrbitalElements(Vector3<float>, Vector3<float>);
 	void			calculateEllipticalOrbit();
@@ -61,9 +59,9 @@ public:
 
 	int		getApIndex() const;
 	int		getPeIndex() const;
-	bool	isVesselOrbit() const;
-	float	getGradientStart() const;
-	void	setGradientStart(float);
+	int		getReferenceIndex() const;
+	void	setReferenceIndex(int);
+	void	setReferenceEccAnomaly(float);
 
 	void	calculateOrbit();
 	void	calculateOrbit(Vector3<float>, Vector3<float>);

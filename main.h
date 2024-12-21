@@ -46,5 +46,7 @@
 #define	INIT_ALT 2000 // In km
 #define	INIT_VEL 8000 // In m/s
 
+#define MIN_ORBIT_VERTICES 1000
+
 
 #endif

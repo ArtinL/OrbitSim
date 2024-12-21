@@ -5,8 +5,7 @@ Orbit::Orbit() {
 	vertices = std::vector<Vector3<float>>();
 	apIndex = 0;
 	peIndex = 0;
-    vessel = true;
-    gradientStart = 0.0f;
+    referenceIndex = 0;
 
 }
 
@@ -15,8 +14,7 @@ Orbit::Orbit(Vector3<float> position, Vector3<float> velocity) {
 	vertices = std::vector<Vector3<float>>();
 	apIndex = 0;
 	peIndex = 0;
-	vessel = true;
-    gradientStart = 0.0f;
+    referenceIndex = 0;
 
 	calculateOrbit(position, velocity);
 }
@@ -37,8 +35,7 @@ Orbit::Orbit(float ap, float pe, float inc, float lan, float argpe) {
     vertices = std::vector<Vector3<float>>();
     apIndex = 0;
     peIndex = 0;
-	vessel = false;
-	gradientStart = 0.0f;
+	referenceIndex = 0;
 
     calculateOrbit();
 }
@@ -59,16 +56,16 @@ int Orbit::getPeIndex() const {
 	return peIndex;
 }
 
-bool Orbit::isVesselOrbit() const {
-	return vessel;
+int Orbit::getReferenceIndex() const {
+	return referenceIndex;
 }
 
-float Orbit::getGradientStart() const {
-	return gradientStart;
+void Orbit::setReferenceIndex(int i) {
+	referenceIndex = i;
 }
 
-void Orbit::setGradientStart(float s) {
-	gradientStart = s;
+void Orbit::setReferenceEccAnomaly(float a) {
+	referenceIndex = getVertex(a);
 }
 
 void Orbit::calculateOrbit() {
@@ -117,22 +114,49 @@ float Orbit::findRelativeInc(const Orbit* otherOrbit) const {
 
 }
 
-int Orbit::getVertex(float trueAnomaly) const {
-    if (vertices.empty()) return -1;
+//int Orbit::getVertex(float trueAnomaly) const {
+//    if (vertices.empty()) return -1;
+//
+//    int numSegments = vertices.size(); 
+//    float thetaStep = (parameters.ecc < 1.0f)
+//        ? (2.0f * M_PI / numSegments) 
+//        : (2.0f * acos(fmin(-1.0f / parameters.ecc, 1.0f)) / numSegments); 
+//
+//    
+//    float normalizedAnomaly = fmod(trueAnomaly, 2.0f * M_PI);
+//    if (normalizedAnomaly < 0.0f) normalizedAnomaly += 2.0f * M_PI; 
+//
+//    int index = static_cast<int>(normalizedAnomaly / thetaStep) % numSegments;
+//    return index; 
+//}
 
-    int numSegments = vertices.size(); 
-    float thetaStep = (parameters.ecc < 1.0f)
-        ? (2.0f * M_PI / numSegments) 
-        : (2.0f * acos(fmin(-1.0f / parameters.ecc, 1.0f)) / numSegments); 
+int Orbit::getVertex(float eccAnomaly) const {
+    // Normalize the true anomaly if needed
 
-    
-    float normalizedAnomaly = fmod(trueAnomaly, 2.0f * M_PI);
-    if (normalizedAnomaly < 0.0f) normalizedAnomaly += 2.0f * M_PI; 
+    if (parameters.ecc < 1.0f) { // Elliptical orbit
+        eccAnomaly = fmod(eccAnomaly, 2.0f * M_PI);
+        if (eccAnomaly < 0) eccAnomaly += 2.0f * M_PI;
+    }
 
-    int index = static_cast<int>(normalizedAnomaly / thetaStep) % numSegments;
-    return index; 
+    int numSegments = vertices.size();
+    float thetaStep;
+
+    if (parameters.ecc < 1.0f) { // Elliptical orbit
+        thetaStep = 2.0f * M_PI / numSegments;
+    }
+    else { // Hyperbolic orbit
+        float nuMax = acos(-1.0f / parameters.ecc);
+        thetaStep = 2.0f * nuMax / numSegments;
+        eccAnomaly = fmax(fmin(eccAnomaly, nuMax), -nuMax);
+    }
+
+    // Calculate the index based on the true anomaly
+    int index = static_cast<int>(round(eccAnomaly / thetaStep));
+    index = static_cast<int>(fmax(fmin(index, numSegments - 1), 0)); // Ensure within bounds
+
+
+    return (index + 1) % numSegments;
 }
-
 
 
 void Orbit::calculateOrbitalElements(Vector3<float> pos, Vector3<float> vel) {
@@ -229,7 +253,7 @@ Vector3<float> Orbit::calculateHyperbolicPosition(float theta, float ecc, float 
 }
 
 void Orbit::calculateEllipticalOrbit() {
-    int numSegments = 200 + (100 * ((int)parameters.sma / 10));
+    int numSegments = MIN_ORBIT_VERTICES + (100 * ((int)parameters.sma / 10));
     numSegments = numSegments > 600 ? 1000 : numSegments;
     float thetaStep = 2.0f * M_PI / numSegments;
 

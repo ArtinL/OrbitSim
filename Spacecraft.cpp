@@ -1,4 +1,4 @@
-#include "Spacecraft.h"
+﻿#include "Spacecraft.h"
 #include "Orbit.h"
 
 
@@ -75,9 +75,6 @@ void Spacecraft::rungeKuttaStep(const Vector3<float>& position, const Vector3<fl
 void Spacecraft::updateState(float ScaledDeltaTime) {
 	
 	float dT = MS_TO_S(ScaledDeltaTime);
-
-	float PosMag = position.magnitude();
-
 	
 	Vector3<float> r = U_TO_M(position);
 	Vector3<float> v = U_TO_M(velocity);
@@ -110,6 +107,8 @@ void Spacecraft::updateState(float ScaledDeltaTime) {
 	
 	position = M_TO_U(rNew);
 	velocity = M_TO_U(vNew);
+
+	orbit->setReferenceEccAnomaly(getEccentricAnomaly());
 
 }
 
@@ -167,17 +166,33 @@ float Spacecraft::getTrueAnomaly() const {
 	float vMag = v.magnitude();
 
 	Vector3<float> h = r.cross(v);
-
-	Vector3<float> e = ((v.cross(h) / MU) - r / rMag);
+	Vector3<float> e = ((v.cross(h) / MU) - r / rMag); 
 	float eMag = e.magnitude();
 
 	float cosTheta = (r.dot(e)) / (rMag * eMag);
-
 	float theta = acos(cosTheta);
+
+	if (r.cross(e).dot(h) < 0) {
+		theta = 2.0f * M_PI - theta;
+	}
 
 	return theta;
 }
 
+
+float Spacecraft::getEccentricAnomaly() const {
+	 
+	float trueAnomaly = getTrueAnomaly();
+
+	float eMag = orbit->getParameters().ecc;
+
+	float eccentricAnomaly = 2.0f * atan(sqrt((1 - eMag) / (1 + eMag)) * tan(trueAnomaly / 2.0f));
+	if (eccentricAnomaly < 0) eccentricAnomaly += 2.0f * M_PI;
+
+	return eccentricAnomaly;
+}
+
+
 int Spacecraft::getVertexIndex() const {
-	return orbit->getVertex(getTrueAnomaly());
+	return orbit->getVertex(getEccentricAnomaly());
 }
