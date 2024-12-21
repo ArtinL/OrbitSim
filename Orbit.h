@@ -46,7 +46,7 @@ private:
 	Vector3<float>	calculateHyperbolicPosition(float, float, float);
 	Vector3<float>	calculateEllipticalPosition(float, float, float, float);
 
-	Vector3<float>	calculateNormalVector() const;
+	Vector3<float>	calculateHVector() const;
 	
 
 public:
@@ -66,7 +66,9 @@ public:
 	void	calculateOrbit();
 	void	calculateOrbit(Vector3<float>, Vector3<float>);
 
-	float	findRelativeInc(const Orbit* otherOrbit) const;
+	float	findANEccAnomaly(const Orbit*, float&) const;
+
+	void	findOrbitalNodeIndecies(const Orbit*, int&, int&, float&) const;
 
 	int		getVertex(float) const;
 

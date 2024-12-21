@@ -83,57 +83,61 @@ void Orbit::calculateOrbit(Vector3<float> pos, Vector3<float> vel) {
 
 }
 
-Vector3<float> Orbit::calculateNormalVector() const {
-    float sinInc = sin(parameters.inc);
-    float cosInc = cos(parameters.inc);
-    float sinLan = sin(parameters.lan);
-    float cosLan = cos(parameters.lan);
+Vector3<float> Orbit::calculateHVector() const {
+	float i = parameters.inc;
+	float lan = parameters.lan;
 
-    return Vector3<float>(sinInc * sinLan, -sinInc * cosLan, cosInc);
+    Vector3<float> h = { sin(i) * sin(lan), cos(i), -sin(i) * cos(lan) };
+
+    return h;
 }
 
-float Orbit::findRelativeInc(const Orbit* otherOrbit) const {
+float Orbit::findANEccAnomaly(const Orbit* otherOrbit, float& angle) const {
 
-    float angle;
-    
-    Vector3<float> normalVector = this->calculateNormalVector();
-    Vector3<float> otherNormalVector = otherOrbit->calculateNormalVector();
+	Vector3<float> h1 = calculateHVector();
+	Vector3<float> h2 = otherOrbit->calculateHVector();
 
-    float normalMag = normalVector.magnitude();
-    float otherNormalMag = otherNormalVector.magnitude();
-    if (normalMag < 1e-8 || otherNormalMag < 1e-8) {
-        angle = 0.0f;
-        return 0.0f;
-    }
+    float cosAngle = h1.dot(h2) / (h1.magnitude() * h2.magnitude());
+    angle = acos(cosAngle);
 
-    float cosAngle = normalVector.dot(otherNormalVector) / (normalMag * otherNormalMag);
+	Vector3<float> n = h1.cross(h2);
+	n = n.normalize();
 
-    cosAngle = std::max(-1.0f, std::min(1.0f, cosAngle));
-    return acos(cosAngle);
+    Vector3<float> pe = vertices[peIndex].normalize();
 
+    Vector3<float> e = pe * parameters.ecc;
+
+    float cosTrueAn = (n.dot(e)) / parameters.ecc;
+	float sinTrueAn = (h1.cross(n)).dot(e) / parameters.ecc;
+
+	float trueAnomaly = atan2(sinTrueAn, cosTrueAn);
+
+
+    if (trueAnomaly < 0.0f) trueAnomaly += 2.0f * M_PI;
+
+	float ecc = parameters.ecc;
+    float eccentricAnomaly = 2.0f * atan(sqrt((1 - ecc) / (1 + ecc)) * tan(trueAnomaly / 2.0f));
+    if (eccentricAnomaly < 0) eccentricAnomaly += 2.0f * M_PI;
+
+
+    return eccentricAnomaly;
 
 }
 
-//int Orbit::getVertex(float trueAnomaly) const {
-//    if (vertices.empty()) return -1;
-//
-//    int numSegments = vertices.size(); 
-//    float thetaStep = (parameters.ecc < 1.0f)
-//        ? (2.0f * M_PI / numSegments) 
-//        : (2.0f * acos(fmin(-1.0f / parameters.ecc, 1.0f)) / numSegments); 
-//
-//    
-//    float normalizedAnomaly = fmod(trueAnomaly, 2.0f * M_PI);
-//    if (normalizedAnomaly < 0.0f) normalizedAnomaly += 2.0f * M_PI; 
-//
-//    int index = static_cast<int>(normalizedAnomaly / thetaStep) % numSegments;
-//    return index; 
-//}
+void Orbit::findOrbitalNodeIndecies(const Orbit* otherOrbit, int& ANindex, int& DNindex, float& relativeInc) const {
+	float ANEccAcnomaly = findANEccAnomaly(otherOrbit, relativeInc);
+	ANindex = getVertex(ANEccAcnomaly);
+
+	float DNEccAnomaly = ANEccAcnomaly + M_PI;
+	DNindex = getVertex(DNEccAnomaly);
+
+	relativeInc = RAD_TO_DEG(relativeInc);
+}
+
 
 int Orbit::getVertex(float eccAnomaly) const {
-    // Normalize the true anomaly if needed
 
-    if (parameters.ecc < 1.0f) { // Elliptical orbit
+    if (parameters.ecc < 1.0f) {
         eccAnomaly = fmod(eccAnomaly, 2.0f * M_PI);
         if (eccAnomaly < 0) eccAnomaly += 2.0f * M_PI;
     }
@@ -141,19 +145,17 @@ int Orbit::getVertex(float eccAnomaly) const {
     int numSegments = vertices.size();
     float thetaStep;
 
-    if (parameters.ecc < 1.0f) { // Elliptical orbit
+    if (parameters.ecc < 1.0f) { 
         thetaStep = 2.0f * M_PI / numSegments;
     }
-    else { // Hyperbolic orbit
+    else { 
         float nuMax = acos(-1.0f / parameters.ecc);
         thetaStep = 2.0f * nuMax / numSegments;
         eccAnomaly = fmax(fmin(eccAnomaly, nuMax), -nuMax);
     }
 
-    // Calculate the index based on the true anomaly
     int index = static_cast<int>(round(eccAnomaly / thetaStep));
-    index = static_cast<int>(fmax(fmin(index, numSegments - 1), 0)); // Ensure within bounds
-
+    index = static_cast<int>(fmax(fmin(index, numSegments - 1), 0));
 
     return (index + 1) % numSegments;
 }

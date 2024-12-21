@@ -658,7 +658,7 @@ void DrawOrbit(Orbit* orbit, int type) {
 	else
 		glBegin(GL_LINE_STRIP);
 
-	GLfloat* color;
+	GLfloat* color = Colors[CYAN];
 
 	switch (type) {
 	case ACTIVE:
@@ -670,7 +670,6 @@ void DrawOrbit(Orbit* orbit, int type) {
 	case INACTIVE:
 		color = Colors[ORBIT_GREY];
 		break;
-
 	}
 
 	
@@ -686,7 +685,7 @@ void DrawOrbit(Orbit* orbit, int type) {
 
 		glColor3fv(MulArray3(brightness, color));
 
-		const Vector3<float>& point = OrbitPoints[i];
+		Vector3<float> point = OrbitPoints[i];
 		glVertex3f(point.x, point.y, point.z);
 	}
 	glEnd();
@@ -707,7 +706,7 @@ void PlaceIndicatorWidget(Vector3<float> pos, Color color, const std::string& la
 	glTranslatef(pos.x, pos.y, pos.z);
 	
 	
-	glColor3fv(&Colors[color][0]);
+	glColor3fv(Colors[color]);
 	
 	GLfloat modelview[16];
 	
@@ -743,9 +742,6 @@ void PlaceIndicatorWidget(Vector3<float> pos, Color color, const std::string& la
 	DoRasterString(labelX, height + 0.05f, 0.0f, label);
 
 
-	
-
-
 	glPopMatrix();
 }
 
@@ -778,6 +774,26 @@ void RenderIndicators(Orbit* orbit, int type) {
 	if (peIndex != -1) {
 		const Vector3<float>& pePoint = OrbitPoints[peIndex];
 		PlaceIndicatorWidget(pePoint, color, "PE");
+	}
+
+	if (type == ACTIVE && targetOrbit != NULL) {
+		int activeAN, activeDN = 0;
+
+		float relativeInc;
+
+		orbit->findOrbitalNodeIndecies(targetOrbit, activeAN, activeDN, relativeInc);
+
+		if (activeAN != -1) {
+			const Vector3<float>& activeANPoint = OrbitPoints[activeAN];
+			PlaceIndicatorWidget(activeANPoint, YELLOW, "AN " + ProcessFloatStr(relativeInc));
+		}
+
+		if (activeDN != -1) {
+			const Vector3<float>& activeDNPoint = OrbitPoints[activeDN];
+			PlaceIndicatorWidget(activeDNPoint, YELLOW, "DN -" + ProcessFloatStr(relativeInc));
+		}
+
+
 	}
 
 	glEnable(GL_LIGHTING);
