@@ -92,12 +92,12 @@ const int	ALERT_DURATION = 3; // In seconds
 // limits for warp levels
 
 const int	MIN_WARP_LEVEL = 0;
-const int	MAX_WARP_LEVEL = 9;
+const int	MAX_WARP_LEVEL = 8;
 
 // limits for throttle levels
 
 const int	MIN_THROTTLE_LEVEL = 0;
-const int	MAX_THROTTLE_LEVEL = 10;
+const int	MAX_THROTTLE_LEVEL = 9;
 
 
 
@@ -265,6 +265,9 @@ std::string	currModeLabel;
 Orbit*		targetOrbit;
 int			lastThrust;
 
+int			initDeltaV;
+int			deltaVRemaining;
+
 // function prototypes:
 
 void		Animate( );
@@ -304,7 +307,6 @@ void		RenderOrbitalInfoWidget(Orbit, int);
 void		RenderVelocityWidget();
 void		RenderAltitudeWidget();
 void		RenderGameModeTitle();
-void		RenderThrottleWidget();
 void		RenderAlert();
 
 void		DrawOrbit(Orbit*, int );
@@ -519,8 +521,6 @@ Display( )
 	if (currGameMode == CHALLENGE) 
 		RenderOrbitalInfoWidget(*targetOrbit, TARGET);
 
-
-	RenderThrottleWidget();
 
 	cullDestroyedVessels();
 
@@ -853,8 +853,14 @@ std::string GenerateTimeInfo() {
 
 void RenderVelocityWidget() {
 	float velocity = U_TO_M(vessels[activeVessel]->getVelocity().magnitude());
-	std::string velocityInfo = "Velocity: " + ProcessFloatStr(velocity) + " m/s";
-	DoRasterString(5.0f, 15.0f, 0.0f, velocityInfo);
+
+	DoRasterString(5.0f, 15.0f, 0.0f, "Velocity: " + ProcessFloatStr(velocity) + " m/s");
+	int throttlePercentage = 100 * ((float) (ThrottleLevel + 1) / (float) (MAX_THROTTLE_LEVEL + 1));
+	DoRasterString(5.0f, 10.0f, 0.0f, "Throttle: " + ProcessIntStr(throttlePercentage) + "%");
+	if (currGameMode == CHALLENGE) {
+		int fuelPercentage = 100 * deltaVRemaining / initDeltaV;
+		DoRasterString(5.0f, 35.0f, 0.0f, "Fuel remaining: " + ProcessIntStr(fuelPercentage) + "%");
+	}
 }
 
 void RenderAltitudeWidget() {
@@ -891,17 +897,6 @@ void RenderOrbitalInfoWidget(Orbit orbit, int type) {
 	DoRasterString(135.0, startOffset - 30, 0.0f, "lan: " + ProcessFloatStr(lan) + " deg");
 	DoRasterString(135.0, startOffset - 35, 0.0f, "argpe: " + ProcessFloatStr(argpe) + " deg");
 }
-
-
-
-
-void RenderThrottleWidget() {
-	std::ostringstream oss;
-	oss << std::fixed << std::setprecision(2) << ThrottleScales[ThrottleLevel];
-	std::string throttleInfo = "Throttle: " + oss.str() + " m/s";
-	DoRasterString(5.0f, 10.0f, 0.0f, throttleInfo);
-}
-
 
 
 void Alert(const std::string& msg) {
@@ -1018,6 +1013,13 @@ void InitChallenge() {
 	);
 	
 	Alert("Challenge mode: match the designated orbit to win!");
+
+	float dvNeeded = vessels[activeVessel]->getOrbit()->calculateTransferDV(targetOrbit);
+	fprintf(stderr, "DV needed: %f\n", dvNeeded);
+
+	initDeltaV = static_cast<int>(dvNeeded + (dvNeeded * 0.25));
+	deltaVRemaining = initDeltaV;
+
 
 }
 
@@ -1363,6 +1365,18 @@ void impulseControl(ImpulseDirection direction) {
 		Alert("Cannot thrust while time warp is active");
 		return;
 	}
+
+	int impulse = ThrottleScales[ThrottleLevel];
+
+	if (currGameMode == CHALLENGE) {
+		if (deltaVRemaining < impulse) {
+			Alert("Not enough fuel!");
+			return;
+		}
+
+		deltaVRemaining -= impulse;
+	}
+
 	lastThrust = trueElapsedTime;
 	vessels[activeVessel]->applyImpulse(direction, ThrottleScales[ThrottleLevel]);
 }
@@ -1633,6 +1647,9 @@ Reset(int gamemode)
 	AlertOn = false;
 	AlertMsg = "";
 	AlertStartTime = 0;
+
+	initDeltaV = -1;
+	deltaVRemaining = -1;
 
 
 	for (Spacecraft* vessel : vessels) {

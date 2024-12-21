@@ -67,8 +67,9 @@ public:
 	void	calculateOrbit(Vector3<float>, Vector3<float>);
 
 	float	findANEccAnomaly(const Orbit*, float&) const;
-
 	void	findOrbitalNodeIndecies(const Orbit*, int&, int&, float&) const;
+
+	float	calculateTransferDV(const Orbit*) const;
 
 	int		getVertex(float) const;
 
