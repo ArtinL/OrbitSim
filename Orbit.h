@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <ctime>
+#include <algorithm>
 #include <cstdio>
 #include <vector>
 #include "Vector3.h"
@@ -31,7 +32,7 @@ class Orbit
 private:
 	
 	OrbitalElements parameters;
-	std::vector<float> vertices;
+	std::vector<Vector3<float>> vertices;
 	int apIndex;
 	int peIndex;
 
@@ -48,7 +49,7 @@ private:
 	Vector3<float>	calculateEllipticalPosition(float, float, float, float);
 
 	Vector3<float>	calculateNormalVector() const;
-
+	Vector3<float>	calculateHVector() const;
 	
 
 public:
@@ -56,23 +57,23 @@ public:
 	Orbit(Vector3<float>, Vector3<float>);
 	Orbit(float, float, float, float, float);
 
-	OrbitalElements		getParameters() const;
-	std::vector<float>	getVertices() const;
-	int			getApIndex() const;
-	int			getPeIndex() const;
-	bool		isVesselOrbit() const;
-	float		getGradientStart() const;
-	void		setGradientStart(float);
+	std::vector<Vector3<float>>	getVertices() const;
+	OrbitalElements				getParameters() const;
 
-	void		calculateOrbit();
-	void		calculateOrbit(Vector3<float>, Vector3<float>);
+	int		getApIndex() const;
+	int		getPeIndex() const;
+	bool	isVesselOrbit() const;
+	float	getGradientStart() const;
+	void	setGradientStart(float);
 
-	void		findANDN(const Orbit& otherOrbit, int& ascendingNodeIndex, int& descendingNodeIndex) const;
-	void		findANDN(int& ascendingNodeIndex, int& descendingNodeIndex) const;
+	void	calculateOrbit();
+	void	calculateOrbit(Vector3<float>, Vector3<float>);
+
+	float	findRelativeInc(const Orbit* otherOrbit) const;
 	
-	float		calculateTransferDv(Orbit otherOrbit) const;
+	float	calculateTransferDv(Orbit otherOrbit) const;
 
-	int			getVertex(float) const;
+	int		getVertex(float) const;
 
 };
 

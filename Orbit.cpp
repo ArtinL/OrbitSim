@@ -2,7 +2,7 @@
 
 Orbit::Orbit() {
 	parameters = OrbitalElements();
-	vertices = std::vector<float>();
+	vertices = std::vector<Vector3<float>>();
 	apIndex = 0;
 	peIndex = 0;
     vessel = true;
@@ -12,7 +12,7 @@ Orbit::Orbit() {
 
 Orbit::Orbit(Vector3<float> position, Vector3<float> velocity) {
 	parameters = OrbitalElements();
-	vertices = std::vector<float>();
+	vertices = std::vector<Vector3<float>>();
 	apIndex = 0;
 	peIndex = 0;
 	vessel = true;
@@ -34,7 +34,7 @@ Orbit::Orbit(float ap, float pe, float inc, float lan, float argpe) {
 
 
     this->parameters = parameters;
-    vertices = std::vector<float>();
+    vertices = std::vector<Vector3<float>>();
     apIndex = 0;
     peIndex = 0;
 	vessel = false;
@@ -47,7 +47,7 @@ OrbitalElements Orbit::getParameters() const {
 	return parameters;
 }
 
-std::vector<float> Orbit::getVertices() const {
+std::vector<Vector3<float>> Orbit::getVertices() const {
 	return vertices;
 }
 
@@ -91,33 +91,27 @@ void Orbit::calculateOrbit(Vector3<float> pos, Vector3<float> vel) {
 
 }
 
-void Orbit::findANDN(const Orbit& otherOrbit, int& ascendingNodeIndex, int& descendingNodeIndex) const {
-    Vector3<float> normal1 = this->calculateNormalVector();
-    Vector3<float> normal2 = otherOrbit.calculateNormalVector();
 
-    Vector3<float> lineOfNodes = normal1.cross(normal2).normalize();
+float Orbit::findRelativeInc(const Orbit* otherOrbit) const {
 
-    float ascendingNodeAngle = atan2(lineOfNodes.y, lineOfNodes.x);
-    if (ascendingNodeAngle < 0) ascendingNodeAngle += 2 * M_PI;
+    float angle;
+    
+    Vector3<float> normalVector = this->calculateNormalVector();
+    Vector3<float> otherNormalVector = otherOrbit->calculateNormalVector();
 
-    float descendingNodeAngle = ascendingNodeAngle + M_PI;
-    if (descendingNodeAngle >= 2 * M_PI) descendingNodeAngle -= 2 * M_PI;
+    float normalMag = normalVector.magnitude();
+    float otherNormalMag = otherNormalVector.magnitude();
+    if (normalMag < 1e-8 || otherNormalMag < 1e-8) {
+        angle = 0.0f;
+        return 0.0f;
+    }
 
-    ascendingNodeIndex = getVertex(ascendingNodeAngle);
-    descendingNodeIndex = getVertex(descendingNodeAngle);
-}
+    float cosAngle = normalVector.dot(otherNormalVector) / (normalMag * otherNormalMag);
 
-void Orbit::findANDN(int& ascendingNodeIndex, int& descendingNodeIndex) const {
-    Vector3<float> normal = this->calculateNormalVector();
+    cosAngle = std::max(-1.0f, std::min(1.0f, cosAngle));
+    return acos(cosAngle);
 
-    float ascendingNodeAngle = atan2(normal.y, normal.x);
-    if (ascendingNodeAngle < 0) ascendingNodeAngle += 2 * M_PI;
 
-    float descendingNodeAngle = ascendingNodeAngle + M_PI;
-    if (descendingNodeAngle >= 2 * M_PI) descendingNodeAngle -= 2 * M_PI;
-
-    ascendingNodeIndex = getVertex(ascendingNodeAngle);
-    descendingNodeIndex = getVertex(descendingNodeAngle);
 }
 
 
@@ -142,16 +136,22 @@ float Orbit::calculateTransferDv(Orbit targetOrbit) const {
 
 
 
-
 int Orbit::getVertex(float trueAnomaly) const {
-    size_t numVertices = vertices.size() / 3;
-    float thetaStep = 2.0f * M_PI / numVertices;
+    if (vertices.empty()) return -1;
 
-    size_t closestIndex = static_cast<size_t>(trueAnomaly / thetaStep);
-    if (closestIndex >= numVertices) closestIndex = numVertices - 1;
+    int numSegments = vertices.size(); 
+    float thetaStep = (parameters.ecc < 1.0f)
+        ? (2.0f * M_PI / numSegments) 
+        : (2.0f * acos(fmin(-1.0f / parameters.ecc, 1.0f)) / numSegments); 
 
-    return static_cast<int>(closestIndex*3);
+    
+    float normalizedAnomaly = fmod(trueAnomaly, 2.0f * M_PI);
+    if (normalizedAnomaly < 0.0f) normalizedAnomaly += 2.0f * M_PI; 
+
+    int index = static_cast<int>(normalizedAnomaly / thetaStep) % numSegments;
+    return index; 
 }
+
 
 
 void Orbit::calculateOrbitalElements(Vector3<float> pos, Vector3<float> vel) {
@@ -248,7 +248,7 @@ Vector3<float> Orbit::calculateHyperbolicPosition(float theta, float ecc, float 
 }
 
 void Orbit::calculateEllipticalOrbit() {
-    int numSegments = 100 + (100 * ((int)parameters.sma / 10));
+    int numSegments = 200 + (100 * ((int)parameters.sma / 10));
     numSegments = numSegments > 600 ? 1000 : numSegments;
     float thetaStep = 2.0f * M_PI / numSegments;
 
@@ -271,9 +271,7 @@ void Orbit::calculateEllipticalOrbit() {
         Vector3<float> pos = calculateEllipticalPosition(theta, a, b, cx);
         pos = applyOrbitalRotations(pos, inc, argpe, lan);
 
-        vertices.push_back(pos.x);
-        vertices.push_back(pos.y);
-        vertices.push_back(pos.z);
+        vertices.push_back(pos);
 
         float distance = std::sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
 
@@ -319,9 +317,7 @@ void Orbit::calculateHyperbolicOrbit() {
         Vector3<float> pos = calculateHyperbolicPosition(theta, ecc, pl);
         pos = applyOrbitalRotations(pos, inc, argpe, lan);
 
-        vertices.push_back(pos.x);
-        vertices.push_back(pos.y);
-        vertices.push_back(pos.z);
+        vertices.push_back(pos);
 
         float distance = std::sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
 
@@ -343,4 +339,16 @@ Vector3<float> Orbit::calculateNormalVector() const {
     float cosLan = cos(parameters.lan);
 
     return Vector3<float>(sinInc * sinLan, -sinInc * cosLan, cosInc);
+}
+
+Vector3<float> Orbit::calculateHVector() const {
+    float a = parameters.sma;
+    float i = parameters.inc;
+    float e = parameters.ecc;
+    float lan = parameters.lan;
+
+    float hMag = sqrt(MU * a * (1 - pow(e, 2)));
+    Vector3<float> h = { hMag * cos(i) * sin(lan), hMag * sin(i), hMag * cos(i) * cos(lan) };
+
+	return h;
 }

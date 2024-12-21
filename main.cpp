@@ -190,6 +190,31 @@ const float ARGPE_WIN_THRESHOLD = 5.0f;
 
 const float	WHITE[ ] = { 1.,1.,1.,1. };
 
+enum Color
+{
+	RED,
+	YELLOW,
+	GREEN,
+	CYAN,
+	BLUE,
+	MAGENTA,
+	DARK_CYAN,
+	DARK_MAGENTA,
+};
+
+
+const GLfloat Colors[][3] =
+{
+	{ 1., 0., 0. },		// red
+	{ 1., 1., 0. },		// yellow
+	{ 0., 1., 0. },		// green
+	{ 0., 1., 1. },		// cyan
+	{ 0., 0., 1. },		// blue
+	{ 1., 0., 1. },		// magenta
+	{ 0., 0.5, 0.5 },	// dark cyan
+	{ 0.5, 0., 0.5 },	// dark magenta
+};
+
 
 // non-constant global variables:
 
@@ -237,7 +262,7 @@ int			activeVessel;
 int			currGameMode;
 std::string	currModeLabel;
 
-Orbit*		challengeOrbit;
+Orbit*		targetOrbit;
 int			lastThrust;
 
 // function prototypes:
@@ -270,7 +295,7 @@ void		RenderSun();
 void		RenderEarth();
 void		RenderStarfield();
 void		RenderIndicators(Orbit*, int);
-void		PlaceIndicatorWidget(float, float, float, int, bool);
+void		PlaceIndicatorWidget(Vector3<float>, Color, const std::string&);
 
 void		RenderTimeWarpWidget();
 std::string	GenerateWarpInfo();
@@ -468,7 +493,7 @@ Display( )
 	RenderEarth();
 
 	if (currGameMode == CHALLENGE) {
-		DrawOrbit(challengeOrbit, TARGET);
+		DrawOrbit(targetOrbit, TARGET);
 		CheckWin();
 	}
 	
@@ -492,11 +517,11 @@ Display( )
 
 	if (DoOrbitDetail) { 
 		RenderExtendedOrbitalWidget(*(vessels[activeVessel]->getOrbit()));
-		if (currGameMode == CHALLENGE) RenderExtendedOrbitalWidget(*challengeOrbit);
+		if (currGameMode == CHALLENGE) RenderExtendedOrbitalWidget(*targetOrbit);
 	}
 	else {
 		RenderOrbitalInfoWidget(*(vessels[activeVessel]->getOrbit()));
-		if (currGameMode == CHALLENGE) RenderOrbitalInfoWidget(*challengeOrbit);
+		if (currGameMode == CHALLENGE) RenderOrbitalInfoWidget(*targetOrbit);
 
 	}
 
@@ -608,12 +633,12 @@ void RenderStarfield() {
 
 
 void DrawOrbit(Orbit* orbit, int type) {
-	std::vector<float> OrbitPoints = orbit->getVertices();
+	std::vector<Vector3<float>> OrbitPoints = orbit->getVertices();
 	OrbitalElements elements = orbit->getParameters();
 	float gradientStart = orbit->getGradientStart();
 
-	size_t numVertices = OrbitPoints.size() / 3;
-	float gradientStep = 1.0f / (numVertices);
+	size_t numVertices = OrbitPoints.size();
+	float gradientStep = 1.0f / numVertices;
 
 	int vesselStartIndex = vessels[activeVessel]->getVertexIndex();
 
@@ -631,10 +656,10 @@ void DrawOrbit(Orbit* orbit, int type) {
 	else
 		glBegin(GL_LINE_STRIP);
 
-	for (size_t i = 0; i < OrbitPoints.size(); i += 3) {
+	for (size_t i = 0; i < numVertices; ++i) {
 		float brightness = 1.0f;
 
-		float t = (i / 3.0f) / numVertices;
+		float t = static_cast<float>(i) / numVertices;
 
 		if (t >= gradientStart) {
 			brightness = 0.5f + 0.5f * (1.0f - (t - gradientStart));
@@ -655,7 +680,8 @@ void DrawOrbit(Orbit* orbit, int type) {
 			break;
 		}
 
-		glVertex3f(OrbitPoints[i], OrbitPoints[i + 1], OrbitPoints[i + 2]);
+		const Vector3<float>& point = OrbitPoints[i];
+		glVertex3f(point.x, point.y, point.z);
 	}
 	glEnd();
 
@@ -666,24 +692,16 @@ void DrawOrbit(Orbit* orbit, int type) {
 }
 
 
-
-
-void PlaceIndicatorWidget(float x, float y, float z, int type, bool ap) {
-
-	if (ap && vessels[activeVessel]->getOrbit()->getApIndex() == -1) return;
-
+void PlaceIndicatorWidget(Vector3<float> pos, Color color, const std::string& label) {
 
 	glPushMatrix();
 
-	glTranslatef(x, y, z);
-	switch (type) {
-	case ACTIVE:
-		glColor3f(0.0f, 0.5f, 0.5f);
-		break;
-	case TARGET:
-		glColor3f(0.5f, 0.0f, 0.5f);
-		break;
-	}
+	float cameraDistance = (cameraPos - pos).magnitude();
+	float scale = cameraDistance * 0.3;
+	glTranslatef(pos.x, pos.y, pos.z);
+	
+	
+	glColor3fv(&Colors[color][0]);
 	
 	GLfloat modelview[16];
 	
@@ -699,6 +717,7 @@ void PlaceIndicatorWidget(float x, float y, float z, int type, bool ap) {
 		}
 	}
 	glLoadMatrixf(modelview);
+	glScalef(scale, scale, scale);
 
 	glBegin(GL_TRIANGLES);
 	float width = 0.05f;
@@ -710,8 +729,14 @@ void PlaceIndicatorWidget(float x, float y, float z, int type, bool ap) {
 	glEnd();
 
 
+	float charWidth = 0.05f; // Adjust this factor based on the font size
+	float labelLength = label.length() * charWidth;
+	float labelX = -labelLength / 2.0f;
+
 	glColor3f(1.0f, 1.0f, 1.0f);
-	DoRasterString(-0.05f, height + 0.05, 0.01f, ap ? "Ap" : "Pe");
+	DoRasterString(labelX, height + 0.05f, 0.0f, label);
+
+
 	
 
 
@@ -719,34 +744,39 @@ void PlaceIndicatorWidget(float x, float y, float z, int type, bool ap) {
 }
 
 
+
 void RenderIndicators(Orbit* orbit, int type) {
-	std::vector<float> OrbitPoints = orbit->getVertices();
+	std::vector<Vector3<float>> OrbitPoints = orbit->getVertices();
 	int apIndex = orbit->getApIndex();
 	int peIndex = orbit->getPeIndex();
 
-
 	if (type == INACTIVE) return;
+	Color color = CYAN;
+
+	switch (type) {
+		case ACTIVE:
+			color = DARK_CYAN;
+			break;
+		case TARGET:
+			color = DARK_MAGENTA;
+			break;
+	}
 
 	glDisable(GL_LIGHTING);
 
 	if (apIndex != -1) {
-		int index = apIndex * 3;
-		float x = OrbitPoints[index];
-		float y = OrbitPoints[index + 1];
-		float z = OrbitPoints[index + 2];
-		PlaceIndicatorWidget(x, y, z, type, true);
-
+		const Vector3<float>& apPoint = OrbitPoints[apIndex];
+		PlaceIndicatorWidget(apPoint, color, "AP");
 	}
 
 	if (peIndex != -1) {
-		int index = peIndex * 3;
-		float x = OrbitPoints[index];
-		float y = OrbitPoints[index + 1];
-		float z = OrbitPoints[index + 2];
-		PlaceIndicatorWidget(x, y, z, type, false);
+		const Vector3<float>& pePoint = OrbitPoints[peIndex];
+		PlaceIndicatorWidget(pePoint, color, "PE");
 	}
+
 	glEnable(GL_LIGHTING);
 }
+
 
 
 void DrawVessel(Spacecraft* vessel, bool active) {
@@ -929,6 +959,11 @@ void spawnNew(bool announce) {
 void InitSandbox(bool cont) {
 	currGameMode = SANDBOX;
 	currModeLabel = GameModeLabels[SANDBOX];
+	if (targetOrbit != NULL) {
+		delete targetOrbit;
+		targetOrbit = NULL;
+
+	}
 
 	if (cont) {
 		InitMenus();
@@ -946,7 +981,7 @@ void InitChallenge() {
 	Spacecraft* ship = new Spacecraft("Player", 500, 7615);
 	vessels.push_back(ship);
 
-	if (challengeOrbit != NULL) delete challengeOrbit;
+	if (targetOrbit != NULL) delete targetOrbit;
 
 	float init1 = Ranf(500.0f, 35000.0f);
 	float init2 = Ranf(500.0f, 35000.0f);
@@ -954,11 +989,11 @@ void InitChallenge() {
 	float ap = max(init1, init2);
 	float pe = min(init1, init2);
 
-	float inc = Ranf(0.0f, 90.0f);
+	float inc = Ranf(0.0f, 75.0f);
 	float lan = Ranf(0.0f, 360.0f);
 	float argpe = Ranf(0.0f, 360.0f);
 
-	challengeOrbit = new Orbit(
+	targetOrbit = new Orbit(
 		KM_TO_U(ap) + 1.0f,
 		KM_TO_U(pe) + 1.0f,
 		DEG_TO_RAD(inc),
@@ -976,7 +1011,7 @@ void CheckWin() {
 	if (trueElapsedTime - lastThrust < 1000) return;
 
 	OrbitalElements vesselParams = vessels[activeVessel]->getOrbit()->getParameters();
-	OrbitalElements targetParams = challengeOrbit->getParameters();
+	OrbitalElements targetParams = targetOrbit->getParameters();
 
 	float smaDiff = U_TO_KM(fabs(vesselParams.sma - targetParams.sma));
 	float incDiff = RAD_TO_DEG(fabs(vesselParams.inc - targetParams.inc));
@@ -990,8 +1025,6 @@ void CheckWin() {
 		argpeDiff < ARGPE_WIN_THRESHOLD
 		) {
 		Alert("Orbit matched! You have completed the challenge");
-		delete challengeOrbit;
-		challengeOrbit = NULL;
 		InitSandbox(true);
 		
 	}
@@ -1284,6 +1317,12 @@ InitMenus( )
 }
 
 void warpControl(int up) {
+	if (up == -1) {
+		WarpLevel = 0;
+		Alert("Time warp stopped");
+		return;
+	}
+
 	if (	(WarpLevel == MAX_WARP_LEVEL && up) 
 		||	(WarpLevel == MIN_WARP_LEVEL && !up)
 		)
@@ -1329,6 +1368,11 @@ Keyboard( unsigned char c, int x, int y )
 		case ',':
 		case '<':
 			warpControl(0);
+			break;
+
+		case '/':
+		case '?':
+			warpControl(-1);
 			break;
 
 		case 'z':
@@ -1951,26 +1995,28 @@ Unit( float v[3] )
 	return dist;
 }
 
-std::string
-ProcessIntStr( int n ) {
-
+std::string ProcessIntStr(int n) {
 	std::string number = std::to_string(n);
-
 	std::string result = "";
 	int count = 0;
-	for (int i = number.length() - 1; i >= 0; i--) {
+	int start = 0;
+
+	if (number[0] == '-') {
+		result += '-';
+		start = 1;
+	}
+
+	for (int i = number.length() - 1; i >= start; i--) {
 		result = number[i] + result;
 		count++;
-		if (count % 3 == 0 && i != 0) {
+		if (count % 3 == 0 && i != start) {
 			result = "," + result;
 		}
 	}
 	return result;
 }
 
-std::string
-ProcessFloatStr( float n ) {
-	
+std::string ProcessFloatStr(float n) {
 	std::stringstream stream;
 	stream << std::fixed << std::setprecision(2) << n;
 	std::string number = stream.str();
@@ -1978,23 +2024,25 @@ ProcessFloatStr( float n ) {
 	std::string result = "";
 	int count = 0;
 	size_t decimalPos = number.find('.');
+	int start = 0;
 
-	// Process the integer part
+	if (number[0] == '-') start = 1;
+	
+
 	int intPartEnd = (decimalPos == std::string::npos) ? number.length() - 1 : decimalPos - 1;
-	for (int i = intPartEnd; i >= 0; i--) {
+	for (int i = intPartEnd; i >= start; i--) {
 		result = number[i] + result;
 		count++;
-		if (count % 3 == 0 && i != 0) {
+		if (count % 3 == 0 && i != start) {
 			result = "," + result;
 		}
 	}
 
-	// Process the fractional part if it exists
-	if (decimalPos != std::string::npos) {
-		result += number.substr(decimalPos);
-	}
+	if (start == 1) result = "-" + result;
 
-	return result;
+	if (decimalPos != std::string::npos) result += number.substr(decimalPos);
 	
 
+	return result;
 }
+
