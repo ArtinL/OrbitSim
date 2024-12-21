@@ -50,10 +50,6 @@ private:
     Vector3<float>	position;
     Vector3<float>	velocity;
 
-    Vector3<float>	forward;
-	Vector3<float>	right;
-	Vector3<float>	up;
-
 	Orbit*	orbit;
 
 	Vector3<float> computeAcceleration(const Vector3<float>&);
@@ -62,12 +58,7 @@ private:
 public:
     Spacecraft();
 	Spacecraft(std::string, int initAlt, int initVel);
-	Spacecraft(std::string, Vector3<float> position, 
-				Vector3<float> velocity,
-				Vector3<float> forward,
-				Vector3<float> right,
-				Vector3<float> up
-			);
+	Spacecraft(std::string, Vector3<float> position, Vector3<float> velocit);
 
 	int getId() const;
 	std::string getName() const;
@@ -77,9 +68,6 @@ public:
 
 	Vector3<float> getPosition() const;
 	Vector3<float> getVelocity() const;
-	Vector3<float> getForward() const;
-	Vector3<float> getRight() const;
-	Vector3<float> getUp() const;
 
 	Orbit*	getOrbit() const;
 	void	recalculateOrbit();

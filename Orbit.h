@@ -49,7 +49,6 @@ private:
 	Vector3<float>	calculateEllipticalPosition(float, float, float, float);
 
 	Vector3<float>	calculateNormalVector() const;
-	Vector3<float>	calculateHVector() const;
 	
 
 public:
@@ -70,8 +69,6 @@ public:
 	void	calculateOrbit(Vector3<float>, Vector3<float>);
 
 	float	findRelativeInc(const Orbit* otherOrbit) const;
-	
-	float	calculateTransferDv(Orbit otherOrbit) const;
 
 	int		getVertex(float) const;
 

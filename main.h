@@ -41,16 +41,10 @@
 #define MS_TO_S(x) ((x) / 1000.0f)
 #define S_TO_MS(x) ((x) * 1000.0f)
 
-//#define MIN_WARP_LEVEL 0
-//#define MAX_WARP_LEVEL 9
-//
-//#define MIN_THROTTLE_LEVEL 0
-//#define MAX_THROTTLE_LEVEL 10
-//
-//#define ROTATION_RATE 0.05
-//
+#define	SOI_LIMIT 10000000 // In km
 
+#define	INIT_ALT 2000 // In km
+#define	INIT_VEL 8000 // In m/s
 
-//#define SOI_LIMIT ( 10000000 )
 
 #endif

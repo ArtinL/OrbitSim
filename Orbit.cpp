@@ -91,6 +91,14 @@ void Orbit::calculateOrbit(Vector3<float> pos, Vector3<float> vel) {
 
 }
 
+Vector3<float> Orbit::calculateNormalVector() const {
+    float sinInc = sin(parameters.inc);
+    float cosInc = cos(parameters.inc);
+    float sinLan = sin(parameters.lan);
+    float cosLan = cos(parameters.lan);
+
+    return Vector3<float>(sinInc * sinLan, -sinInc * cosLan, cosInc);
+}
 
 float Orbit::findRelativeInc(const Orbit* otherOrbit) const {
 
@@ -113,28 +121,6 @@ float Orbit::findRelativeInc(const Orbit* otherOrbit) const {
 
 
 }
-
-
-float Orbit::calculateTransferDv(Orbit targetOrbit) const {
-
-    float sma1 = U_TO_M(parameters.sma);
-    float ecc1 = parameters.ecc;
-    float inc1 = parameters.inc;
-    float lan1 = parameters.lan;
-    float argpe1 = parameters.argpe;
-
-    float sma2 = U_TO_M(targetOrbit.parameters.sma);
-    float ecc2 = targetOrbit.parameters.ecc;
-    float inc2 = targetOrbit.parameters.inc;
-    float lan2 = targetOrbit.parameters.lan;
-    float argpe2 = targetOrbit.parameters.argpe;
-
-    float totalDeltaV = 0.0f;
-  
-    return totalDeltaV;
-}
-
-
 
 int Orbit::getVertex(float trueAnomaly) const {
     if (vertices.empty()) return -1;
@@ -330,25 +316,4 @@ void Orbit::calculateHyperbolicOrbit() {
 
     apIndex = -1;
     peIndex = periapsisIndex;
-}
-
-Vector3<float> Orbit::calculateNormalVector() const {
-    float sinInc = sin(parameters.inc);
-    float cosInc = cos(parameters.inc);
-    float sinLan = sin(parameters.lan);
-    float cosLan = cos(parameters.lan);
-
-    return Vector3<float>(sinInc * sinLan, -sinInc * cosLan, cosInc);
-}
-
-Vector3<float> Orbit::calculateHVector() const {
-    float a = parameters.sma;
-    float i = parameters.inc;
-    float e = parameters.ecc;
-    float lan = parameters.lan;
-
-    float hMag = sqrt(MU * a * (1 - pow(e, 2)));
-    Vector3<float> h = { hMag * cos(i) * sin(lan), hMag * sin(i), hMag * cos(i) * cos(lan) };
-
-	return h;
 }

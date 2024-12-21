@@ -99,12 +99,6 @@ const int	MAX_WARP_LEVEL = 9;
 const int	MIN_THROTTLE_LEVEL = 0;
 const int	MAX_THROTTLE_LEVEL = 10;
 
-// distance limit for simulation end
-
-const int	SOI_LIMIT = 10000000; // In km
-
-const int	INIT_ALT = 2000; // In km
-const int	INIT_VEL = 8000; // In m/s
 
 
 enum ButtonVals

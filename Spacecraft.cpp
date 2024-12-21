@@ -4,27 +4,21 @@
 
 // Default constructor
 Spacecraft::Spacecraft() : 
-	Spacecraft("Default", Vector3<float>(), Vector3<float>(), Vector3<float>(), Vector3<float>(), Vector3<float>()) {}
+	Spacecraft("Default", Vector3<float>{ KM_TO_U(INIT_ALT) + EARTH_RADIUS, 0.0f, 0.0f },
+		Vector3<float>{ 0.0f, 0.0f, -M_TO_U(INIT_VEL) }) {}
 
 Spacecraft::Spacecraft(std::string name, int initAlt, int initVel)
 	: Spacecraft(
 		name,
 		Vector3<float>{ KM_TO_U(initAlt) + EARTH_RADIUS, 0.0f, 0.0f },
-		Vector3<float>{ 0.0f, 0.0f, -M_TO_U(initVel) },
-		Vector3<float>{ 0.0f, 0.0f, 1.0f },
-		Vector3<float>{ 1.0f, 0.0f, 0.0f },
-		Vector3<float>{ 0.0f, 1.0f, 0.0f }
+		Vector3<float>{ 0.0f, 0.0f, -M_TO_U(initVel) }
 	) {}
 
 
-Spacecraft::Spacecraft(std::string name, Vector3<float> position, Vector3<float> velocity, Vector3<float> forward, Vector3<float> right, Vector3<float> up) {
+Spacecraft::Spacecraft(std::string name, Vector3<float> position, Vector3<float> velocity) {
 	this->name = name;
 	this->position = position;
 	this->velocity = velocity;
-	this->forward = forward;
-	this->right = right;
-	this->up = up;
-
 	this->destroyed = false;
 	orbit = new Orbit(position, velocity);
 	id = count++;
@@ -54,18 +48,6 @@ Vector3<float> Spacecraft::getPosition() const {
 
 Vector3<float> Spacecraft::getVelocity() const {
 	return velocity;
-}
-
-Vector3<float> Spacecraft::getForward() const {
-	return forward;
-}
-
-Vector3<float> Spacecraft::getRight() const {
-	return right;
-}
-
-Vector3<float> Spacecraft::getUp() const {
-	return up;
 }
 
 Orbit* Spacecraft::getOrbit() const {
