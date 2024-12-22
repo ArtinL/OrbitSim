@@ -734,7 +734,7 @@ void PlaceIndicatorWidget(Vector3<float> pos, Color color, const std::string& la
 	glEnd();
 
 
-	float charWidth = 0.05f; // Adjust this factor based on the font size
+	float charWidth = 0.05f; 
 	float labelLength = label.length() * charWidth;
 	float labelX = -labelLength / 2.0f;
 

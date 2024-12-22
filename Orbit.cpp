@@ -125,6 +125,14 @@ float Orbit::findANEccAnomaly(const Orbit* otherOrbit, float& angle) const {
 }
 
 void Orbit::findOrbitalNodeIndecies(const Orbit* otherOrbit, int& ANindex, int& DNindex, float& relativeInc) const {
+
+    if (parameters.ecc >= 1) {
+		ANindex = -1;
+		DNindex = -1;
+		relativeInc = 0.0f;
+		return;
+    }
+
 	float ANEccAcnomaly = findANEccAnomaly(otherOrbit, relativeInc);
 	ANindex = getVertex(ANEccAcnomaly);
 
@@ -162,18 +170,16 @@ int Orbit::getVertex(float eccAnomaly) const {
 
 
 float Orbit::calculateTransferDV(const Orbit* otherOrbit) const {
-    // Get orbital parameters
+    
     OrbitalElements current = this->getParameters();
     OrbitalElements target = otherOrbit->getParameters();
 
     float currentSMA = U_TO_M(current.sma);
 	float targetSMA = U_TO_M(target.sma);
 
-    // If orbits aren't roughly coplanar, we need to include plane change
     float planeChangeDV = 0.0f;
     if (abs(current.inc - target.inc) > 0.001f ||
         abs(current.lan - target.lan) > 0.001f) {
-        // Calculate velocity at intersection point
         float v1 = sqrt(MU * (2.0f / currentSMA));
         float angleChange = acos(cos(current.inc) * cos(target.inc) +
             sin(current.inc) * sin(target.inc) *
@@ -181,33 +187,26 @@ float Orbit::calculateTransferDV(const Orbit* otherOrbit) const {
         planeChangeDV = 2.0f * v1 * sin(angleChange / 2.0f);
     }
 
-    // Calculate semi-major axis of transfer orbit
     float r1 = currentSMA;
     float r2 = targetSMA;
     float at = (r1 + r2) / 2.0f;
 
-    // Calculate velocities at current orbit
-    float v1 = sqrt(MU / r1);  // circular orbit velocity
-    float vt1 = sqrt(MU * (2.0f / r1 - 1.0f / at));  // transfer orbit velocity at periapsis
+    float v1 = sqrt(MU / r1);  
+    float vt1 = sqrt(MU * (2.0f / r1 - 1.0f / at));  
 
-    // Calculate velocities at target orbit
-    float v2 = sqrt(MU / r2);  // circular orbit velocity
-    float vt2 = sqrt(MU * (2.0f / r2 - 1.0f / at));  // transfer orbit velocity at apoapsis
+    float v2 = sqrt(MU / r2); 
+    float vt2 = sqrt(MU * (2.0f / r2 - 1.0f / at));  
 
-    // Calculate delta-V for each burn
-    float dv1 = abs(vt1 - v1);  // First burn
-    float dv2 = abs(v2 - vt2);  // Second burn
+    float dv1 = abs(vt1 - v1);  
+    float dv2 = abs(v2 - vt2);  
 
-    // For elliptical orbits, adjust velocities based on true anomaly
     if (current.ecc > 0.001f || target.ecc > 0.001f) {
-        // Calculate velocities at departure and arrival points
         float vdep = sqrt(MU * (2.0f / r1 - 1.0f / currentSMA));
         float varr = sqrt(MU * (2.0f / r2 - 1.0f / targetSMA));
         dv1 = abs(vt1 - vdep);
         dv2 = abs(varr - vt2);
     }
 
-    // Total delta-V is sum of all maneuvers
     return dv1 + dv2 + planeChangeDV;
 }
 
@@ -352,7 +351,7 @@ void Orbit::calculateHyperbolicOrbit() {
     
 
     float ecc = parameters.ecc;
-    float pl = parameters.sma * (1 - ecc * ecc);  // Semi-latus rectum approximation for hyperbolic orbits
+    float pl = parameters.sma * (1 - ecc * ecc);  
 
     float inc = parameters.inc;
     float lan = parameters.lan;
@@ -370,7 +369,7 @@ void Orbit::calculateHyperbolicOrbit() {
     for (int i = 0; i < numSegments; i++) {
         float theta = i * thetaStep - nuMax;
         float r = pl / (1 + ecc * cos(theta));
-        if (r < 0 || isnan(r) || isinf(r)) continue; // Skip invalid values
+        if (r < 0 || isnan(r) || isinf(r)) continue; 
 
         Vector3<float> pos = calculateHyperbolicPosition(theta, ecc, pl);
         pos = applyOrbitalRotations(pos, inc, argpe, lan);
