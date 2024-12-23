@@ -5,7 +5,12 @@ Orbit::Orbit() {
 	vertices = std::vector<Vector3<float>>();
 	apIndex = 0;
 	peIndex = 0;
+	referenceTrueAnomaly = 0.0f;
     referenceIndex = 0;
+	targetOrbit = nullptr;
+    ANindex = -1;
+    DNindex = -1;
+    relativeInc = -1.0f;
 
 }
 
@@ -14,7 +19,12 @@ Orbit::Orbit(Vector3<float> position, Vector3<float> velocity) {
 	vertices = std::vector<Vector3<float>>();
 	apIndex = 0;
 	peIndex = 0;
+    referenceTrueAnomaly = 0.0f;
     referenceIndex = 0;
+	targetOrbit = nullptr;
+    ANindex = -1;
+    DNindex = -1;
+    relativeInc = -1.0f;
 
 	calculateOrbit(position, velocity);
 }
@@ -35,7 +45,12 @@ Orbit::Orbit(float ap, float pe, float inc, float lan, float argpe) {
     vertices = std::vector<Vector3<float>>();
     apIndex = 0;
     peIndex = 0;
+    referenceTrueAnomaly = 0.0f;
 	referenceIndex = 0;
+	targetOrbit = nullptr;
+    ANindex = -1;
+    DNindex = -1;
+    relativeInc = -1.0f;
 
     calculateOrbit();
 }
@@ -60,27 +75,46 @@ int Orbit::getReferenceIndex() const {
 	return referenceIndex;
 }
 
-void Orbit::setReferenceIndex(int i) {
-	referenceIndex = i;
+void Orbit::setReferenceIndex(int index) {
+	referenceIndex = index;
+	referenceTrueAnomaly = getTrueAnomalyFromVertex(index);
 }
 
-void Orbit::setReferenceEccAnomaly(float a) {
-	referenceIndex = getVertex(a);
+void Orbit::setReferenceTrueAnomaly(float a) {
+	referenceTrueAnomaly = a;
+	referenceIndex = getVertexFromTrueAnomaly(a);
 }
 
-void Orbit::calculateOrbit() {
-    vertices.clear();
-
-    if (parameters.ecc < 1.0f)
-        calculateEllipticalOrbit();
-    else
-        calculateHyperbolicOrbit();
+float Orbit::getReferenceTrueAnomaly() const {
+	return referenceTrueAnomaly;
 }
 
-void Orbit::calculateOrbit(Vector3<float> pos, Vector3<float> vel) {
-    calculateOrbitalElements(pos, vel);
-    calculateOrbit();
+void Orbit::setTargetOrbit(Orbit* target) {
+	targetOrbit = target;
+	calcOrbitalNodeIndecies();
+}
 
+Orbit* Orbit::getTargetOrbit() const {
+	return targetOrbit;
+}
+
+void Orbit::clearTargetOrbit() {
+    targetOrbit = nullptr;
+    ANindex = -1;
+    DNindex = -1;
+    relativeInc = -1.0f;
+}
+
+int Orbit::getANIndex() const {
+	return ANindex;
+}
+
+int Orbit::getDNIndex() const {
+	return DNindex;
+}
+
+float Orbit::getRelativeInc() const {
+	return relativeInc;
 }
 
 Vector3<float> Orbit::calculateHVector() const {
@@ -92,13 +126,15 @@ Vector3<float> Orbit::calculateHVector() const {
     return h;
 }
 
-float Orbit::findANEccAnomaly(const Orbit* otherOrbit, float& angle) const {
+float Orbit::findANEccAnomaly() {
+
+	if (targetOrbit == nullptr) throw std::runtime_error("Target orbit not set");
 
 	Vector3<float> h1 = calculateHVector();
-	Vector3<float> h2 = otherOrbit->calculateHVector();
+	Vector3<float> h2 = targetOrbit->calculateHVector();
 
     float cosAngle = h1.dot(h2) / (h1.magnitude() * h2.magnitude());
-    angle = acos(cosAngle);
+    this->relativeInc = RAD_TO_DEG(acos(cosAngle));
 
 	Vector3<float> n = h1.cross(h2);
 	n = n.normalize();
@@ -124,26 +160,28 @@ float Orbit::findANEccAnomaly(const Orbit* otherOrbit, float& angle) const {
 
 }
 
-void Orbit::findOrbitalNodeIndecies(const Orbit* otherOrbit, int& ANindex, int& DNindex, float& relativeInc) const {
+void Orbit::calcOrbitalNodeIndecies() {
 
     if (parameters.ecc >= 1) {
-		ANindex = -1;
-		DNindex = -1;
-		relativeInc = 0.0f;
+		this->ANindex = -1;
+		this->DNindex = -1;
+		this->relativeInc = 0.0f;
 		return;
     }
 
-	float ANEccAcnomaly = findANEccAnomaly(otherOrbit, relativeInc);
-	ANindex = getVertex(ANEccAcnomaly);
+	float ANEccAcnomaly = findANEccAnomaly();
+	this->ANindex = getVertexFromTrueAnomaly(ANEccAcnomaly);
 
 	float DNEccAnomaly = ANEccAcnomaly + M_PI;
-	DNindex = getVertex(DNEccAnomaly);
+	this->DNindex = getVertexFromTrueAnomaly(DNEccAnomaly);
 
-	relativeInc = RAD_TO_DEG(relativeInc);
 }
 
 
-int Orbit::getVertex(float eccAnomaly) const {
+int Orbit::getVertexFromTrueAnomaly(float trueAnomaly) const {
+
+	float eccAnomaly = 2.0f * atan(sqrt((1 - parameters.ecc) / (1 + parameters.ecc)) * tan(trueAnomaly / 2.0f));
+    if (eccAnomaly < 0) eccAnomaly += 2.0f * M_PI;
 
     if (parameters.ecc < 1.0f) {
         eccAnomaly = fmod(eccAnomaly, 2.0f * M_PI);
@@ -166,6 +204,19 @@ int Orbit::getVertex(float eccAnomaly) const {
     index = static_cast<int>(fmax(fmin(index, numSegments - 1), 0));
 
     return (index + 1) % numSegments;
+}
+
+float Orbit::getTrueAnomalyFromVertex(int index) const {
+	int numSegments = vertices.size();
+	float thetaStep = 2.0f * M_PI / numSegments;
+
+	float eccAnomaly = index * thetaStep;
+
+    float trueAnomaly = 2.0f * atan2(
+        sqrt(1.0f + parameters.ecc) * sin(eccAnomaly / 2.0f),
+        sqrt(1.0f - parameters.ecc) * cos(eccAnomaly / 2.0f)
+    );
+	return trueAnomaly;
 }
 
 
@@ -208,6 +259,23 @@ float Orbit::calculateTransferDV(const Orbit* otherOrbit) const {
     }
 
     return dv1 + dv2 + planeChangeDV;
+}
+
+
+void Orbit::calculateOrbit() {
+    if (parameters.ecc < 1.0f)
+        calculateEllipticalOrbit();
+    else
+        calculateHyperbolicOrbit();
+
+	if (targetOrbit != nullptr) {
+		calcOrbitalNodeIndecies();
+	}
+}
+
+void Orbit::calculateOrbit(Vector3<float> pos, Vector3<float> vel) {
+    calculateOrbitalElements(pos, vel);
+    calculateOrbit();
 }
 
 
@@ -271,120 +339,89 @@ void Orbit::calculateOrbitalElements(Vector3<float> pos, Vector3<float> vel) {
 
 }
 
+Vector3<float> Orbit::applyOrbitalRotations(Vector3<float> pos, float inc, float argpe, float lan) const {
+    float xRot = pos.x * cos(argpe) - pos.z * sin(argpe);
+    float zRot = pos.x * sin(argpe) + pos.z * cos(argpe);
+    float yRot = pos.y;
 
-Vector3<float> Orbit::calculateEllipticalPosition(float theta, float a, float b, float cx) {
-    float x = a * cos(theta) + cx;
-    float z = b * sin(theta);
-    return Vector3<float>(x, 0.0f, z);
+    float xIncl = xRot;
+    float yIncl = yRot * cos(inc) - zRot * sin(inc);
+    float zIncl = yRot * sin(inc) + zRot * cos(inc);
+
+    return Vector3<float>(
+        xIncl * cos(lan) - zIncl * sin(lan),
+        yIncl,
+        xIncl * sin(lan) + zIncl * cos(lan)
+    );
 }
 
+void Orbit::generateOrbitVertices(const std::function<Vector3<float>(float)>& pointGenerator,
+    float startTheta, float endTheta, int numSegments) {
+    float thetaStep = (endTheta - startTheta) / numSegments;
+    float maxDistance = -1.0f;
+    float minDistance = std::numeric_limits<float>::max();
 
-Vector3<float> Orbit::applyOrbitalRotations(Vector3<float> pos, float inc, float argpe, float lan) {
-    float x_rot = pos.x * cos(argpe) - pos.z * sin(argpe);
-    float z_rot = pos.x * sin(argpe) + pos.z * cos(argpe);
-    float y_rot = pos.y;
+    vertices.clear();
+    vertices.reserve(numSegments);
 
-    float x_incl = x_rot;
-    float y_incl = y_rot * cos(inc) - z_rot * sin(inc);
-    float z_incl = y_rot * sin(inc) + z_rot * cos(inc);
+    for (int i = 0; i < numSegments; i++) {
+        float theta = startTheta + i * thetaStep;
+        Vector3<float> pos = pointGenerator(theta);
 
-    float x_final = x_incl * cos(lan) - z_incl * sin(lan);
-    float z_final = x_incl * sin(lan) + z_incl * cos(lan);
-    float y_final = y_incl;
+        if (pos.magnitude() == 0) continue;
 
-    return Vector3<float>(x_final, y_final, z_final);
-}
+        pos = applyOrbitalRotations(pos, parameters.inc, parameters.argpe, parameters.lan);
+        vertices.push_back(pos);
 
-Vector3<float> Orbit::calculateHyperbolicPosition(float theta, float ecc, float pl) {
-    float r = pl / (1 + ecc * cos(theta));
-    float x = r * cos(theta);
-    float y = 0.0f;
-    float z = r * sin(theta);
-
-    return Vector3<float>(x, y, z);
+        float distance = pos.magnitude();
+        if (distance > maxDistance) {
+            maxDistance = distance;
+            apIndex = i;
+        }
+        if (distance < minDistance) {
+            minDistance = distance;
+            peIndex = i;
+        }
+    }
 }
 
 void Orbit::calculateEllipticalOrbit() {
-    int numSegments = MIN_ORBIT_VERTICES + (100 * ((int)parameters.sma / 10));
-    numSegments = numSegments > 600 ? 1000 : numSegments;
-    float thetaStep = 2.0f * M_PI / numSegments;
-
     float a = parameters.sma;
     float ecc = parameters.ecc;
     float b = a * sqrt(1 - ecc * ecc);
     float cx = -a * ecc;
 
-    float inc = parameters.inc;
-    float lan = parameters.lan;
-    float argpe = parameters.argpe;
+    int numSegments = MIN_ORBIT_VERTICES + (100 * ((int)parameters.sma / 10));
 
-    int apoapsisIndex = -1;
-    int periapsisIndex = -1;
-    float maxDistance = -1.0f;
-    float minDistance = 1000000;
+    auto pointGen = [a, b, cx](float theta) {
+        return Vector3<float>(
+            a * cos(theta) + cx,
+            0.0f,
+            b * sin(theta)
+        );
+        };
 
-    for (int i = 0; i < numSegments; i++) {
-        float theta = i * thetaStep;
-        Vector3<float> pos = calculateEllipticalPosition(theta, a, b, cx);
-        pos = applyOrbitalRotations(pos, inc, argpe, lan);
-
-        vertices.push_back(pos);
-
-        float distance = std::sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
-
-        if (distance > maxDistance) {
-            maxDistance = distance;
-            apoapsisIndex = i;
-        }
-        if (distance < minDistance) {
-            minDistance = distance;
-            periapsisIndex = i;
-        }
-    }
-
-    apIndex = apoapsisIndex;
-    peIndex = periapsisIndex;
+    generateOrbitVertices(pointGen, 0, 2.0f * M_PI, numSegments);
 }
 
 void Orbit::calculateHyperbolicOrbit() {
-    int numSegments = 1000;
-    
-
     float ecc = parameters.ecc;
-    float pl = parameters.sma * (1 - ecc * ecc);  
-
-    float inc = parameters.inc;
-    float lan = parameters.lan;
-    float argpe = parameters.argpe;
-
-    int apoapsisIndex = -1;
-    int periapsisIndex = -1;
-    float maxDistance = -1.0f;
-    float minDistance = 1000000;
-    
+    float pl = parameters.sma * (1 - ecc * ecc);
     float nuMax = acos(fmin(-1.0f / ecc, 1.0f));
 
-
-    float thetaStep = 2.0f * nuMax / numSegments;
-    for (int i = 0; i < numSegments; i++) {
-        float theta = i * thetaStep - nuMax;
+    auto pointGen = [pl, ecc](float theta) {
         float r = pl / (1 + ecc * cos(theta));
-        if (r < 0 || isnan(r) || isinf(r)) continue; 
+        if (r < 0 || isnan(r) || isinf(r))
+            return Vector3<float>(0, 0, 0);
 
-        Vector3<float> pos = calculateHyperbolicPosition(theta, ecc, pl);
-        pos = applyOrbitalRotations(pos, inc, argpe, lan);
+        return Vector3<float>(
+            r * cos(theta),
+            0.0f,
+            r * sin(theta)
+        );
+        };
 
-        vertices.push_back(pos);
-
-        float distance = std::sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
-
-        
-        if (distance < minDistance) {
-            minDistance = distance;
-            periapsisIndex = i;
-        }
-    }
-
+    generateOrbitVertices(pointGen, -nuMax, nuMax, 1000);
     apIndex = -1;
-    peIndex = periapsisIndex;
 }
+

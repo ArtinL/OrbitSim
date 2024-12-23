@@ -12,8 +12,10 @@
 #include <algorithm>
 #include <cstdio>
 #include <vector>
-#include "Vector3.h"
+#include <functional>
+#include <stdexcept>
 
+#include "Vector3.h"
 #include "main.h"
 
 
@@ -36,17 +38,27 @@ private:
 	int apIndex;
 	int peIndex;
 
+	float referenceTrueAnomaly;
 	int referenceIndex;
+
+	Orbit* targetOrbit;
+
+	int ANindex;
+	int DNindex;
+	float relativeInc;
 	
 	void			calculateOrbitalElements(Vector3<float>, Vector3<float>);
+
 	void			calculateEllipticalOrbit();
 	void			calculateHyperbolicOrbit();
 
-	Vector3<float>	applyOrbitalRotations(Vector3<float>, float, float, float);
-	Vector3<float>	calculateHyperbolicPosition(float, float, float);
-	Vector3<float>	calculateEllipticalPosition(float, float, float, float);
+	Vector3<float>	applyOrbitalRotations(Vector3<float>, float, float, float) const;
+	void			generateOrbitVertices(const std::function<Vector3<float>(float)>&, float, float, int);
 
 	Vector3<float>	calculateHVector() const;
+
+	float			findANEccAnomaly();
+	void			calcOrbitalNodeIndecies();
 	
 
 public:
@@ -59,19 +71,33 @@ public:
 
 	int		getApIndex() const;
 	int		getPeIndex() const;
+
+	
+	void    setReferenceTrueAnomaly(float);
+	float	getReferenceTrueAnomaly() const;
+
 	int		getReferenceIndex() const;
 	void	setReferenceIndex(int);
-	void	setReferenceEccAnomaly(float);
+
+	void	setTargetOrbit(Orbit*);
+	Orbit*	getTargetOrbit() const;
+	void	clearTargetOrbit();
+
+	int		getANIndex() const;
+	int		getDNIndex() const;
+	float	getRelativeInc() const;
 
 	void	calculateOrbit();
 	void	calculateOrbit(Vector3<float>, Vector3<float>);
 
-	float	findANEccAnomaly(const Orbit*, float&) const;
-	void	findOrbitalNodeIndecies(const Orbit*, int&, int&, float&) const;
+	
 
 	float	calculateTransferDV(const Orbit*) const;
 
-	int		getVertex(float) const;
+	int		getVertexFromTrueAnomaly(float) const;
+	float   getTrueAnomalyFromVertex(int) const;
+
+
 
 };
 

@@ -54,6 +54,14 @@ Orbit* Spacecraft::getOrbit() const {
 	return orbit;
 }
 
+void Spacecraft::assignTarget(Orbit* targetOrbit) {
+	orbit->setTargetOrbit(targetOrbit);
+}
+
+void Spacecraft::removeTarget() {
+	orbit->clearTargetOrbit();
+}
+
 void Spacecraft::recalculateOrbit() {
 	orbit->calculateOrbit(position, velocity);
 }
@@ -108,7 +116,7 @@ void Spacecraft::updateState(float ScaledDeltaTime) {
 	position = M_TO_U(rNew);
 	velocity = M_TO_U(vNew);
 
-	orbit->setReferenceEccAnomaly(getEccentricAnomaly());
+	orbit->setReferenceTrueAnomaly(getTrueAnomaly());
 
 }
 
@@ -180,19 +188,19 @@ float Spacecraft::getTrueAnomaly() const {
 }
 
 
-float Spacecraft::getEccentricAnomaly() const {
-	 
-	float trueAnomaly = getTrueAnomaly();
-
-	float eMag = orbit->getParameters().ecc;
-
-	float eccentricAnomaly = 2.0f * atan(sqrt((1 - eMag) / (1 + eMag)) * tan(trueAnomaly / 2.0f));
-	if (eccentricAnomaly < 0) eccentricAnomaly += 2.0f * M_PI;
-
-	return eccentricAnomaly;
-}
+//float Spacecraft::getEccentricAnomaly() const {
+//	 
+//	float trueAnomaly = getTrueAnomaly();
+//
+//	float eMag = orbit->getParameters().ecc;
+//
+//	float eccentricAnomaly = 2.0f * atan(sqrt((1 - eMag) / (1 + eMag)) * tan(trueAnomaly / 2.0f));
+//	if (eccentricAnomaly < 0) eccentricAnomaly += 2.0f * M_PI;
+//
+//	return eccentricAnomaly;
+//}
 
 
 int Spacecraft::getVertexIndex() const {
-	return orbit->getVertex(getEccentricAnomaly());
+	return orbit->getReferenceIndex();
 }

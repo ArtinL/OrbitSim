@@ -571,7 +571,7 @@ void updateVessels() {
 		if (trueElapsedTime - lastTime < 20) return;
 		
 		lastTime = trueElapsedTime;
-		int referenceIndex = static_cast<int>(targetOrbit->getReferenceIndex());
+		int referenceIndex = targetOrbit->getReferenceIndex();
 		int numVertices = targetOrbit->getVertices().size();
 		int stepSize = static_cast<int>((1.0f / MIN_ORBIT_VERTICES) * numVertices);
 
@@ -579,7 +579,9 @@ void updateVessels() {
 		if (referenceIndex < 0) {
 			referenceIndex += numVertices;
 		}
-		targetOrbit->setReferenceIndex(static_cast<float>(referenceIndex));
+
+		targetOrbit->setReferenceIndex(referenceIndex);
+
 	}
 
 
@@ -777,11 +779,10 @@ void RenderIndicators(Orbit* orbit, int type) {
 	}
 
 	if (type == ACTIVE && targetOrbit != NULL) {
-		int activeAN, activeDN = 0;
-
-		float relativeInc;
-
-		orbit->findOrbitalNodeIndecies(targetOrbit, activeAN, activeDN, relativeInc);
+		
+		int activeAN = orbit->getANIndex();
+		int activeDN = orbit->getDNIndex();
+		float relativeInc = orbit->getRelativeInc();
 
 		if (activeAN != -1) {
 			const Vector3<float>& activeANPoint = OrbitPoints[activeAN];
@@ -1011,6 +1012,8 @@ void InitChallenge() {
 		DEG_TO_RAD(lan),
 		DEG_TO_RAD(argpe)
 	);
+
+	ship->assignTarget(targetOrbit);
 	
 	Alert("Challenge mode: match the designated orbit to win!");
 
@@ -1044,6 +1047,7 @@ void CheckWin() {
 		) {
 		Alert("Orbit matched! You have completed the challenge");
 		InitSandbox(true);
+		vessels[activeVessel]->removeTarget();
 		
 	}
 
