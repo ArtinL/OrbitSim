@@ -230,8 +230,9 @@ float		cameraPhi;
 
 Vector3<float>	cameraPos;
 
+
+unsigned long	elapsedTime;
 unsigned long	scaledElapsedTime;
-unsigned long	trueElapsedTime;
 int				scaledDeltaTime;
 
 int			WarpLevel;
@@ -379,13 +380,11 @@ Animate( )
 	int ms = glutGet(GLUT_ELAPSED_TIME);
 
 	if (lastTime == 0) lastTime = ms;
-
 	int DeltaTime = ms - lastTime;
 	lastTime = ms;
-
 	if (ended) return;
 
-	trueElapsedTime += DeltaTime;
+	elapsedTime += DeltaTime;
 
 	scaledDeltaTime = DeltaTime * WarpScales[WarpLevel];
 
@@ -506,7 +505,7 @@ Display( )
 	glDisable(GL_LIGHTING);
 	glMatrixMode( GL_PROJECTION );
 	glLoadIdentity( );
-	glOrtho(0.0f, 160.0f, 0.0f, 90.0f, -15.0f, 15.0f); // Extended Z range
+	glOrtho(0.0f, 160.0f, 0.0f, 90.0f, -15.0f, 15.0f);
 	glMatrixMode( GL_MODELVIEW );
 	glLoadIdentity( );
 	glColor3f(1.0f, 1.0f, 1.0f);
@@ -566,12 +565,12 @@ void updateVessels() {
 	if (currGameMode == CHALLENGE && targetOrbit != NULL) {
 
 		static int lastTime = 0;
-		if (lastTime == 0) lastTime = trueElapsedTime;
+		if (lastTime == 0) lastTime = elapsedTime;
 
-		if (trueElapsedTime - lastTime < 20) return;
+		if (elapsedTime - lastTime < 20) return;
 		
-		lastTime = trueElapsedTime;
-		int referenceIndex = targetOrbit->getReferenceIndex();
+		lastTime = elapsedTime;
+		int referenceIndex = targetOrbit->getAtlasIndex();
 		int numVertices = targetOrbit->getVertices().size();
 		int stepSize = static_cast<int>((1.0f / MIN_ORBIT_VERTICES) * numVertices);
 
@@ -580,7 +579,7 @@ void updateVessels() {
 			referenceIndex += numVertices;
 		}
 
-		targetOrbit->setReferenceIndex(referenceIndex);
+		targetOrbit->setAtlasIndex(referenceIndex);
 
 	}
 
@@ -650,7 +649,7 @@ void RenderStarfield() {
 
 void DrawOrbit(Orbit* orbit, int type) {
 	std::vector<Vector3<float>> OrbitPoints = orbit->getVertices();
-	int referenceIndex = static_cast<int>(orbit->getReferenceIndex());
+	int referenceIndex = static_cast<int>(orbit->getAtlasIndex());
 	size_t numVertices = OrbitPoints.size();
 
 	glDisable(GL_LIGHTING);
@@ -903,13 +902,13 @@ void RenderOrbitalInfoWidget(Orbit orbit, int type) {
 void Alert(const std::string& msg) {
 	AlertMsg = msg;
 	AlertOn = true;
-	AlertStartTime = MS_TO_S(trueElapsedTime);
+	AlertStartTime = MS_TO_S(elapsedTime);
 }
 
 void RenderAlert() {
 	if (!AlertOn) return;
 
-	int elapsedAlertTime = MS_TO_S(trueElapsedTime) - AlertStartTime;
+	int elapsedAlertTime = MS_TO_S(elapsedTime) - AlertStartTime;
 
 	if (elapsedAlertTime > ALERT_DURATION) {
 		AlertOn = false;
@@ -1029,7 +1028,7 @@ void InitChallenge() {
 void CheckWin() {
 
 
-	if (trueElapsedTime - lastThrust < 1000) return;
+	if (elapsedTime - lastThrust < 1000) return;
 
 	OrbitalElements vesselParams = vessels[activeVessel]->getOrbit()->getParameters();
 	OrbitalElements targetParams = targetOrbit->getParameters();
@@ -1381,7 +1380,7 @@ void impulseControl(ImpulseDirection direction) {
 		deltaVRemaining -= impulse;
 	}
 
-	lastThrust = trueElapsedTime;
+	lastThrust = elapsedTime;
 	vessels[activeVessel]->applyImpulse(direction, ThrottleScales[ThrottleLevel]);
 }
 

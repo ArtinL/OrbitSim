@@ -49,4 +49,8 @@
 #define MIN_ORBIT_VERTICES 1000
 
 
+extern unsigned long int	elapsedTime;
+extern unsigned long int	scaledElapsedTime;
+extern int					scaledDeltaTime;
+
 #endif

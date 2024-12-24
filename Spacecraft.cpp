@@ -116,7 +116,7 @@ void Spacecraft::updateState(float ScaledDeltaTime) {
 	position = M_TO_U(rNew);
 	velocity = M_TO_U(vNew);
 
-	orbit->setReferenceTrueAnomaly(getTrueAnomaly());
+	orbit->setAtlasTrueAnomaly(getTrueAnomaly());
 
 }
 
@@ -188,19 +188,6 @@ float Spacecraft::getTrueAnomaly() const {
 }
 
 
-//float Spacecraft::getEccentricAnomaly() const {
-//	 
-//	float trueAnomaly = getTrueAnomaly();
-//
-//	float eMag = orbit->getParameters().ecc;
-//
-//	float eccentricAnomaly = 2.0f * atan(sqrt((1 - eMag) / (1 + eMag)) * tan(trueAnomaly / 2.0f));
-//	if (eccentricAnomaly < 0) eccentricAnomaly += 2.0f * M_PI;
-//
-//	return eccentricAnomaly;
-//}
-
-
 int Spacecraft::getVertexIndex() const {
-	return orbit->getReferenceIndex();
+	return orbit->getAtlasIndex();
 }

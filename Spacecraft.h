@@ -47,6 +47,8 @@ private:
 	bool		destroyed;
 	std::string name;
 
+	unsigned long int vesselTime;
+
     Vector3<float>	position;
     Vector3<float>	velocity;
 

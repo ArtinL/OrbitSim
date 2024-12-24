@@ -1,12 +1,13 @@
 ﻿#include "Orbit.h"
+#include "main.h"
 
 Orbit::Orbit() {
 	parameters = OrbitalElements();
 	vertices = std::vector<Vector3<float>>();
 	apIndex = 0;
 	peIndex = 0;
-	referenceTrueAnomaly = 0.0f;
-    referenceIndex = 0;
+	atlasTrueAnomaly = 0.0f;
+    atlasIndex = 0;
 	targetOrbit = nullptr;
     ANindex = -1;
     DNindex = -1;
@@ -19,8 +20,8 @@ Orbit::Orbit(Vector3<float> position, Vector3<float> velocity) {
 	vertices = std::vector<Vector3<float>>();
 	apIndex = 0;
 	peIndex = 0;
-    referenceTrueAnomaly = 0.0f;
-    referenceIndex = 0;
+    atlasTrueAnomaly = 0.0f;
+    atlasIndex = 0;
 	targetOrbit = nullptr;
     ANindex = -1;
     DNindex = -1;
@@ -45,8 +46,8 @@ Orbit::Orbit(float ap, float pe, float inc, float lan, float argpe) {
     vertices = std::vector<Vector3<float>>();
     apIndex = 0;
     peIndex = 0;
-    referenceTrueAnomaly = 0.0f;
-	referenceIndex = 0;
+    atlasTrueAnomaly = 0.0f;
+	atlasIndex = 0;
 	targetOrbit = nullptr;
     ANindex = -1;
     DNindex = -1;
@@ -71,22 +72,22 @@ int Orbit::getPeIndex() const {
 	return peIndex;
 }
 
-int Orbit::getReferenceIndex() const {
-	return referenceIndex;
+int Orbit::getAtlasIndex() const {
+	return atlasIndex;
 }
 
-void Orbit::setReferenceIndex(int index) {
-	referenceIndex = index;
-	referenceTrueAnomaly = getTrueAnomalyFromVertex(index);
+void Orbit::setAtlasIndex(int index) {
+	atlasIndex = index;
+	atlasTrueAnomaly = getTrueAnomalyFromVertex(index);
 }
 
-void Orbit::setReferenceTrueAnomaly(float a) {
-	referenceTrueAnomaly = a;
-	referenceIndex = getVertexFromTrueAnomaly(a);
+void Orbit::setAtlasTrueAnomaly(float a) {
+	atlasTrueAnomaly = a;
+	atlasIndex = getVertexFromTrueAnomaly(a);
 }
 
-float Orbit::getReferenceTrueAnomaly() const {
-	return referenceTrueAnomaly;
+float Orbit::getAtlasTrueAnomaly() const {
+	return atlasTrueAnomaly;
 }
 
 void Orbit::setTargetOrbit(Orbit* target) {
@@ -127,6 +128,7 @@ Vector3<float> Orbit::calculateHVector() const {
 }
 
 float Orbit::findANEccAnomaly() {
+
 
 	if (targetOrbit == nullptr) throw std::runtime_error("Target orbit not set");
 

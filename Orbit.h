@@ -38,8 +38,8 @@ private:
 	int apIndex;
 	int peIndex;
 
-	float referenceTrueAnomaly;
-	int referenceIndex;
+	float atlasTrueAnomaly;
+	int atlasIndex;
 
 	Orbit* targetOrbit;
 
@@ -73,11 +73,11 @@ public:
 	int		getPeIndex() const;
 
 	
-	void    setReferenceTrueAnomaly(float);
-	float	getReferenceTrueAnomaly() const;
+	void    setAtlasTrueAnomaly(float);
+	float	getAtlasTrueAnomaly() const;
 
-	int		getReferenceIndex() const;
-	void	setReferenceIndex(int);
+	int		getAtlasIndex() const;
+	void	setAtlasIndex(int);
 
 	void	setTargetOrbit(Orbit*);
 	Orbit*	getTargetOrbit() const;
@@ -89,8 +89,6 @@ public:
 
 	void	calculateOrbit();
 	void	calculateOrbit(Vector3<float>, Vector3<float>);
-
-	
 
 	float	calculateTransferDV(const Orbit*) const;
 
