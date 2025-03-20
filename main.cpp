@@ -245,9 +245,16 @@ GLuint		EarthDL;
 GLuint		SunDL;
 GLuint		StarfieldDL;
 GLuint		VesselDL;
+GLuint		AtmosDL;
 
 GLuint		EarthTex;
 GLuint		StarfieldTex;
+
+GLuint 		EarthDayTex;
+GLuint 		EarthNightTex;
+GLuint 		EarthCloudTex;
+GLuint 		EarthBumpTex;
+
 
 bool		lookAtVessel;
 int			DoOrbitDetail;
@@ -350,7 +357,10 @@ std::string ProcessFloatStr(float);
 #include "osucone.cpp"
 #include "osutorus.cpp"
 #include "bmptotexture.cpp"
+#include "glslprogram.cpp"
 
+GLSLProgram Earth;
+GLSLProgram Atmosphere;
 
 // main program:
 int
@@ -390,6 +400,9 @@ Animate( )
 
 	scaledElapsedTime += scaledDeltaTime;
 	
+	Earth.Use();
+	Earth.SetUniformVariable("timer", (float) scaledElapsedTime);
+	Earth.UnUse();
 
 	glutSetWindow( MainWindow );
 	glutPostRedisplay( );
@@ -615,35 +628,64 @@ void RenderSun() {
 	glCallList(SunDL);
 	
 	glEnable(GL_LIGHTING);
-
+	 
 	glPopMatrix();
-}
+} 
 
 void RenderEarth() {
-    glPushMatrix();
-
+    // Enable blending for atmosphere transparency
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
-    float rotationSpeed = 0.0041667f; 
+    // Render Earth first
+    Earth.Use();
+    
+    // Bind all textures to their respective texture units
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, EarthDayTex);
+    
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, EarthNightTex);
+    
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, EarthCloudTex);
+    
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, EarthBumpTex);
+    
+	float rotationSpeed = 0.0041667f; 
 	float earthRotation = rotationSpeed * MS_TO_S(scaledElapsedTime); 
 
+	glPushMatrix();
     glRotatef(earthRotation, 0.0f, 1.0f, 0.0f);
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-    glEnable(GL_TEXTURE_2D);
     glCallList(EarthDL);
-    glDisable(GL_TEXTURE_2D);
-
-    glPopMatrix();
+	glPopMatrix();
+    Earth.UnUse();
+    
+    // Then render atmosphere
+    Atmosphere.Use();
+    glCallList(AtmosDL);
+    Atmosphere.UnUse();
+    
+    glDisable(GL_BLEND);
 }
 
 void RenderStarfield() {
-	glPushMatrix();
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-	glDisable(GL_LIGHTING);
-	glEnable(GL_TEXTURE_2D);
-	glCallList(StarfieldDL);
-	glEnable(GL_LIGHTING);
-	glDisable(GL_TEXTURE_2D);
-	glPopMatrix();
+    glPushMatrix();
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glColor3f(1.0f, 1.0f, 1.0f);
+    glDisable(GL_LIGHTING);
+    
+    // Explicitly set texture unit and bind texture
+    glActiveTexture(GL_TEXTURE0);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, StarfieldTex);
+    
+    glCallList(StarfieldDL);
+    
+    glDisable(GL_TEXTURE_2D);
+    glEnable(GL_LIGHTING);
+    glPopMatrix();
 }
 
 
@@ -997,8 +1039,8 @@ void InitChallenge() {
 	float init1 = Ranf(500.0f, 35000.0f);
 	float init2 = Ranf(500.0f, 35000.0f);
 	
-	float ap = max(init1, init2);
-	float pe = min(init1, init2);
+	float ap = std::max(init1, init2);
+	float pe = std::min(init1, init2);
 
 	float inc = Ranf(0.0f, 60.0f);
 	float lan = Ranf(0.0f, 360.0f);
@@ -1134,32 +1176,90 @@ InitGraphics()
 
 	EarthTex = LoadBmpTexture(EARTH_TEX_NAME);
 	StarfieldTex = LoadBmpTexture(STARFIELD_TEX_NAME);
+
+	EarthDayTex = LoadBmpTexture("earthmap.bmp");
+	EarthNightTex = LoadBmpTexture("earthlights.bmp");
+	EarthCloudTex = LoadBmpTexture("earthcloudmap.bmp");
+	EarthBumpTex = LoadBmpTexture("bumpmap.bmp");
+
+	Earth.Init();
+	bool valid = Earth.Create((char*)"earth.vert", (char*)"earth.frag");
+	if (!valid)
+		fprintf(stderr, "Could not create the Earth shader!\n");
+	else {
+		fprintf(stderr, "Earth shader created!\n");
+		// Set up texture uniform once during initialization
+        // Set up all texture uniforms
+		Earth.Use();
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, EarthDayTex);
+		Earth.SetUniformVariable("dayTexture", 0);
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, EarthNightTex);
+		Earth.SetUniformVariable("nightTexture", 1);
+
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, EarthCloudTex);
+		Earth.SetUniformVariable("cloudTexture", 2);
+
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_2D, EarthBumpTex);
+		Earth.SetUniformVariable("bumpTexture", 3);
+		Earth.UnUse();
+	}
+
+	Atmosphere.Init();
+    valid = Atmosphere.Create((char*)"atmos.vert", (char*)"atmos.frag");
+    if (!valid)
+        fprintf(stderr, "Could not create the Atmosphere shader!\n");
+	else {
+		fprintf(stderr, "Atmosphere shader created!\n");
+		
+		// Set atmosphere parameters
+		Atmosphere.Use();
+		Atmosphere.SetUniformVariable((char*)"atmosphereStart", EARTH_RADIUS);
+		Atmosphere.SetUniformVariable((char*)"atmosphereThickness", EARTH_RADIUS * 0.025f);
+		Atmosphere.SetUniformVariable((char*)"innerColor", 0.4f, 0.7f, 1.0f, 0.5f);
+		Atmosphere.SetUniformVariable((char*)"outerColor", 0.1f, 0.2f, 0.8f, 0.0f);
+		Atmosphere.UnUse();
+	}
+
 }
 
 
 GLuint LoadBmpTexture(const char* filename) {
-	int width, height;
-	unsigned char* texture = BmpToTexture((char*)filename, &width, &height);
-	if (texture == NULL) {
-		fprintf(stderr, "Cannot open texture '%s'\n", filename);
-		return 0;
-	}
-	else
-		fprintf(stderr, "Opened '%s': width = %d ; height = %d\n", filename, width, height);
-
-
-	GLuint tex;
-
-	glGenTextures(1, &tex);
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, texture);
-
-	return tex;
+    int width, height;
+    unsigned char* texture = BmpToTexture((char*)filename, &width, &height);
+    if (texture == NULL) {
+        fprintf(stderr, "Cannot open texture '%s'\n", filename);
+        return 0;
+    }
+    
+    GLuint tex;
+    glGenTextures(1, &tex);
+    
+    // Save the current active texture unit
+    GLint previousTexture;
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &previousTexture);
+    
+    // Set texture unit 0 as active
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, 3, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, texture);
+    
+    // Restore previous active texture unit
+    glActiveTexture(previousTexture);
+    
+    delete[] texture;  // Clean up the texture data
+    
+    return tex;
 }
 
 // initialize the display lists
@@ -1180,7 +1280,6 @@ InitLists()
 	glNewList(EarthDL, GL_COMPILE);
 		glPushMatrix();
 		glScalef(EARTH_RADIUS, EARTH_RADIUS, EARTH_RADIUS);
-		glBindTexture(GL_TEXTURE_2D, EarthTex);
 		glCallList(SphereDL);
 		glPopMatrix();
 	glEndList();
@@ -1190,6 +1289,14 @@ InitLists()
 		glPushMatrix();
 		glScalef(SUN_RADIUS, SUN_RADIUS, SUN_RADIUS);
 		glColor3f(1.0f, 1.0f, 0.0f);
+		glCallList(SphereDL);
+		glPopMatrix();
+	glEndList();
+
+	AtmosDL = glGenLists(1);
+	glNewList(AtmosDL, GL_COMPILE);
+		glPushMatrix();
+		glScalef(EARTH_RADIUS * 1.025f, EARTH_RADIUS * 1.025f, EARTH_RADIUS * 1.025f);
 		glCallList(SphereDL);
 		glPopMatrix();
 	glEndList();

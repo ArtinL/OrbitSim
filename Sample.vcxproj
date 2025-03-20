@@ -152,6 +152,12 @@
     <Image Include="navball.bmp" />
     <Image Include="stars.bmp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="atmos.frag" />
+    <None Include="atmos.vert" />
+    <None Include="earth.frag" />
+    <None Include="earth.vert" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

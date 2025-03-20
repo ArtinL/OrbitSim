@@ -52,7 +52,7 @@ GetExtension( char *file )
 
 GLSLProgram::GLSLProgram( )
 {
-	Init( );
+	// Init( );
 }
 
 
@@ -461,8 +461,10 @@ void
 GLSLProgram::Init( )
 {
 	Verbose = false;
-
-	const GLubyte* extensions = glGetString(GL_EXTENSIONS);
+	const GLubyte* extensions = NULL;
+#ifndef __APPLE__
+	extensions = glGetString(GL_EXTENSIONS);
+#endif
 	if( extensions != NULL )
 	{
 		//*********************************************************************************
@@ -561,6 +563,16 @@ GLSLProgram::UseFixedFunction( )
 };
 
 
+#ifdef COMPUTE
+void
+GLSLProgram::DispatchCompute( int num_groups_x, int num_groups_y, int num_groups_z )
+{
+	this->Use( );
+	glDispatchCompute( num_groups_x, num_groups_y, num_groups_z );
+}
+#endif
+
+
 int
 GLSLProgram::GetAttributeLocation( char *name )
 {
@@ -626,9 +638,11 @@ GLSLProgram::SetAttributeVariable( char* name, int val )
 				glVertexAttrib1f( loc, (float)val );
 				break;
 
+#ifndef __APPLE__
 			case GL_DOUBLE:
 				glVertexAttrib1d( loc, (double)val );
 				break;
+#endif
 
 			default:
 				fprintf( stderr, "Setting attribute variable '%s': please be more explicit with the variable type\n", name );
@@ -704,15 +718,19 @@ GLSLProgram::SetAttributeVariable( char* name, double val )
 				glVertexAttrib1f( loc, (float)val );
 				break;
 
+#ifndef __APPLE__
 			case GL_DOUBLE:
 				glVertexAttrib1d( loc, val );
 				break;
+#endif
 
 			default:
 				fprintf( stderr, "Setting attribute variable '%s': please be more explicit with the variable type\n", name );
 		}
 #else
+#ifndef __APPLE__
 		glVertexAttrib1d( loc, val );
+#endif
 #endif
 	}
 };
@@ -786,6 +804,10 @@ GLSLProgram::SetUniformVariable( char* name, int val )
 		switch( type )
 		{
 			case GL_INT:
+			case GL_SAMPLER_1D:
+			case GL_SAMPLER_2D:
+			case GL_SAMPLER_3D:
+			case GL_SAMPLER_CUBE:
 				glUniform1i( loc, val );
 				break;
 
@@ -793,9 +815,11 @@ GLSLProgram::SetUniformVariable( char* name, int val )
 				glUniform1f( loc, (float)val );
 				break;
 
+#ifndef __APPLE__
 			case GL_DOUBLE:
 				glUniform1d( loc, (double)val );
 				break;
+#endif
 
 			default:
 				fprintf( stderr, "Setting uniform variable '%s': please be more explicit with the variable type\n", name );
@@ -830,9 +854,11 @@ GLSLProgram::SetUniformVariable( char* name, float val )
 				glUniform1f( loc, val );
 				break;
 
+#ifndef __APPLE__
 			case GL_DOUBLE:
 				glUniform1d( loc, (double)val );
 				break;
+#endif
 
 			default:
 				fprintf( stderr, "Setting uniform variable '%s': please be more explicit with the variable type\n", name );
@@ -865,19 +891,53 @@ GLSLProgram::SetUniformVariable( char* name, double val )
 				glUniform1f( loc, (float)val );
 				break;
 
+#ifndef __APPLE__
 			case GL_DOUBLE:
 				glUniform1d( loc, val );
 				break;
+#endif
 
 			default:
 				fprintf( stderr, "Setting uniform variable '%s': please be more explicit with the variable type\n", name );
 		}
 #else
+#ifndef __APPLE__
 		glUniform1d( loc, val );
+#endif
 #endif
 	}
 };
 
+
+void
+GLSLProgram::SetUniformVariable(char* name, float val0, float val1 )
+{
+	int loc;
+	if ((loc = GetUniformLocation(name)) >= 0)
+	{
+		this->Use();
+#ifdef TYPE_CHECKS
+		GLint  size;
+		GLenum type;
+		GetUniformTypeAndSize(name, &size, &type);
+		switch (type)
+		{
+			case GL_FLOAT_VEC2:
+				glUniform2f(loc, val0, val1);
+				break;
+
+			case GL_FLOAT_VEC3:
+				glUniform3f(loc, val0, val1, 0.f);
+				break;
+
+			default:
+				fprintf(stderr, "Setting uniform variable '%s': please be more explicit with the variable type\n", name);
+		}
+#else
+		glUniform3f(loc, val0, val1, val2);
+#endif
+	}
+};
 
 void
 GLSLProgram::SetUniformVariable( char* name, float val0, float val1, float val2 )
@@ -890,13 +950,13 @@ GLSLProgram::SetUniformVariable( char* name, float val0, float val1, float val2 
 		GLint  size;
 		GLenum type;
 		GetUniformTypeAndSize( name, &size, &type );
-		switch( size )
+		switch( type )
 		{
-			case 3:
+			case GL_FLOAT_VEC3:
 				glUniform3f( loc, val0, val1, val2 );
 				break;
 
-			case 4:
+			case GL_FLOAT_VEC4:
 				glUniform4f( loc, val0, val1, val2, 1.f );
 				break;
 
@@ -921,13 +981,13 @@ GLSLProgram::SetUniformVariable( char* name, float val0, float val1, float val2,
 		GLint  size;
 		GLenum type;
 		GetUniformTypeAndSize( name, &size, &type );
-		switch( size )
+		switch( type )
 		{
-			case 3:
+			case GL_FLOAT_VEC3:
 				glUniform3f( loc, val0, val1, val2 );
 				break;
 
-			case 4:
+			case GL_FLOAT_VEC4:
 				glUniform4f( loc, val0, val1, val2, val3 );
 				break;
 
@@ -945,7 +1005,6 @@ void
 GLSLProgram::SetUniformVariable( char* name, float vals[3] )
 {
 	int loc;
-	//fprintf( stderr, "Found a 3-element array\n" );
 
 	if( ( loc = GetUniformLocation( name ) )  >= 0 )
 	{
@@ -970,14 +1029,14 @@ GLSLProgram::SetUniformVariable( char *name, glm::vec3 v3 )
 		GLint  size;
 		GLenum type;
 		GetUniformTypeAndSize( name, &size, &type );
-		switch( size )
+		switch( type )
 		{
-			case 3:
+			case GL_FLOAT_VEC3:
 				glUniform3f( loc, v3.x, v3.y, v3.z );
 				break;
 
-			case 4:
-				glUniform4f( loc, v3.x, v3.y, v3.z, 1.f );
+			case GL_FLOAT_VEC4:
+				glUniform4f( loc, v3.x, v3.y, v3.z, 1. );
 				break;
 
 			default:
@@ -1001,13 +1060,13 @@ GLSLProgram::SetUniformVariable( char *name, glm::vec4 v4 )
 		GLint  size;
 		GLenum type;
 		GetUniformTypeAndSize( name, &size, &type );
-		switch( size )
+		switch( type )
 		{
-			case 3:
+			case GL_FLOAT_VEC3:
 				glUniform3f( loc, v4.x, v4.y, v4.z );
 				break;
 
-			case 4:
+			case GL_FLOAT_VEC4:
 				glUniform4f( loc, v4.x, v4.y, v4.z, v4.w );
 				break;
 
@@ -1151,9 +1210,9 @@ main( )
                 //fprintf( stderr, "GLEW initialized OK\n" );
         //fprintf( stderr, "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION));
 
-	fprintf( stderr, "Starting\n" );
+	//fprintf( stderr, "Starting\n" );
 	Pattern.Init( );
-	fprintf( stderr, "Called Init\n" );
+	//fprintf( stderr, "Called Init\n" );
 	return 0;
 }
 #endif
