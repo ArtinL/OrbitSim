@@ -47,6 +47,8 @@ private:
 	bool		destroyed;
 	std::string name;
 
+	unsigned long int vesselTime;
+
     Vector3<float>	position;
     Vector3<float>	velocity;
 
@@ -76,9 +78,12 @@ public:
     void	updateState(float);
 
 	float	getTrueAnomaly() const;
-	float   getEccentricAnomaly() const;
+	//float   getEccentricAnomaly() const;
 
 	int		getVertexIndex() const;
+
+	void    assignTarget(Orbit*);
+	void    removeTarget();
 
 };
 

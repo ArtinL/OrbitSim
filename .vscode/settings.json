@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.asm": "gas",
+        "*.pl": "prolog",
+        "xstring": "cpp"
+    }
+}

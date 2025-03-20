@@ -1,0 +1,52 @@
+##OpenGL GLIB
+
+Perspective 70
+LookAt 0 0 4  0 0 0  0 1 0
+
+# Texture units for both shaders
+Texture2D 0 earthmap.bmp
+Texture2D 1 earthlights.bmp
+Texture2D 2 earthcloudmap.bmp
+Texture2D 3 bumpmap.bmp
+
+# Light setup
+Light 0 position 10.0 5.0 10.0
+
+# Earth shader program with controls
+Vertex   earth.vert
+Fragment earth.frag
+Program  Earth                          \
+        Timer <0. 500000. 0.>           \
+        BumpStrength <0. 0.1 0.3>       \
+        CloudOpacity <0. 0.5 1.0>       \
+        NightBrightness <0.1 0.6 1.0>   \
+        DayBrightness <0.5 0.9 1.0>
+
+# Earth model
+Sphere 1.0 200 200
+
+# Atmosphere shader program with controls
+Vertex   atmos.vert
+Fragment atmos.frag
+Program  Atmosphere                     \
+        AtmosphereThickness <0.01 0.025 0.1> \
+        InnerColorR <0.1 0.4 1.0>       \
+        InnerColorG <0.3 0.7 1.0>       \
+        InnerColorB <0.5 1.0 1.0>       \
+        InnerColorA <0.0 0.3 1.0>       \
+        OuterColorR <0.0 0.1 0.5>       \
+        OuterColorG <0.0 0.2 0.5>       \
+        OuterColorB <0.3 0.8 1.0>       \
+        OuterColorA <0.0 0.0 0.5>       \
+        RimPower <0.5 1.5 5.0>          \
+        ScatterIntensity <0.0 0.7 2.0>  \
+        CoronaThreshold <0.9 0.95 0.99>
+
+# Atmosphere rendering settings
+BlendFunc SRC_ALPHA ONE_MINUS_SRC_ALPHA
+Enable GL_BLEND
+Sphere 1.025 200 200
+Disable GL_BLEND
+
+# Animation
+QuadXY 0 0 0 0  # Empty quad for animation updates
